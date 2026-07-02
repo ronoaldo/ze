@@ -1,0 +1,72 @@
+# GoReleaser v2 — Multi-platform build for Zé Agent
+# Docs: https://goreleaser.com/customization/
+
+version: 2
+
+project_name: ze
+
+before:
+  hooks:
+    - rm -f internal/agent/a.go internal/agent/b.go internal/agent/test.go internal/agent/x.go
+    - go mod verify
+    - go test ./...
+
+builds:
+  - id: ze
+    main: ./cmd/ze
+    binary: ze
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      - goos: darwin
+        goarch: amd64
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.Commit}}
+      - -X main.date={{.Date}}
+
+archives:
+  - id: ze-archive
+    builds:
+      - ze
+    name_template: >-
+      {{ .ProjectName }}_{{ .Version }}_{{ title .Os }}_{{ .Arch }}
+    format_overrides:
+      - goos: windows
+        format: zip
+    files:
+      - README.md
+      - LICENSE
+
+checksum:
+  name_template: checksums.txt
+
+changelog:
+  use: git
+
+release:
+  github:
+    owner: ""
+    name: ""
+  header: |
+    ## Zé Agent {{ .Tag }}
+
+    Multi-platform builds for Zé Agent.
+
+    ### Platforms
+
+    | OS | Arch | File |
+    |----|------|------|
+    | Linux | amd64 | ze_{{ .Version }}_Linux_x86_64.tar.gz |
+    | Linux | arm64 | ze_{{ .Version }}_Linux_arm64.tar.gz |
+    | macOS | arm64 | ze_{{ .Version }}_Darwin_arm64.tar.gz |
+    | Windows | amd64 | ze_{{ .Version }}_Windows_x86_64.zip |
+    | Windows | arm64 | ze_{{ .Version }}_Windows_arm64.zip |
