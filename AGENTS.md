@@ -36,56 +36,78 @@ goreleaser build --snapshot --clean
 
 ```
 cmd/ze/main.go          ← Entry point: CLI flags, hardware detection, model selection, TUI
-internal/agent/loop.go  ← Agent loop multi-estágio com tool-use (guarda 20 iterações)
-internal/llm/client.go  ← Cliente OpenAI-compatível para llama.cpp
-internal/llm/hardware.go← Detecção de GPU/CPU/RAM + seleção de modelo GGUF
-internal/prompt/prompt.go ← System prompt otimizado para Gemma 4
-internal/tools/         ← Tools: file_read, file_write, list_files, go_doc
+internal/agent/         ← Core do agente: loop multi-estágio, gestão de histórico e estatísticas
+internal/commands/      ← Gerenciador de comandos de barra (ex: /quit, /help)
+internal/llm/           ← Cliente OpenAI-compatível e detecção de hardware/modelos
+internal/prompt/        ← System prompts otimizados para o modelo (Gemma 4)
+internal/tools/         ← Implementação das ferramentas (file_read, file_write, edit_file, etc.)
 internal/tui/           ← TUI ANSI: raw mode, line editing, scroll buffer, SIGWINCH
-internal/tui/tui_linux.go   ← Linux: TCGETS/TCSETS, TIOCGWINSZ
-internal/tui/tui_darwin.go  ← Darwin: ioctl constants nativas
-internal/tui/tui_windows.go ← Windows: stub (raw mode não suportado)
 ```
+
+## Ferramentas (Tools)
+
+O agente utiliza ferramentas baseadas em JSON Schema para interagir com o sistema:
+
+- `read_file`: Lê o conteúdo de um arquivo.
+- `write_file`: Escreve conteúdo em um arquivo (sobrescreve).
+- `edit_file`: Aplica edições parciais em arquivos usando substituição de strings.
+- `list_files`: Lista arquivos e diretórios.
+- `go_doc`: Recupera documentação de pacotes Go via `go doc`.
+
+## Arquitetura e Design
+
+### Agent Loop & Reporter
+O agente opera em um loop de até 20 iterações. Para manter a interface de usuário (TUI) informada sem acoplar o agente diretamente à UI, utiliza-se a interface `AgentReporter`.
+- O agente chama métodos como `ReportToolCall` e `ReportToolResult`.
+- A TUI implementa essa interface para renderizar o progresso em tempo real.
+
+### Slash Commands
+O sistema de comandos de barra (`/command`) é processado antes do loop do agente. Se um comando for detectado, ele é executado pelo pacote `internal/commands`. Se o comando retornar `ErrQuit`, o programa encerra; caso contrário, o input é tratado como uma mensagem para o agente.
+
+### Model Selection
+A seleção de modelo segue uma hierarquia de prioridade:
+1. Modelo Gemma 4 já carregado no servidor.
+2. Qualquer outro modelo carregado no servidor.
+3. Fallback para detecção de hardware local para sugerir o melhor modelo GGUF disponível.
 
 ## Padrões de código
 
-- **Erros:** sempre verifique `if err != nil` — nunca ignore erros
-- **Importação:** organize em grupos (padrão, internal, third-party)
-- **Nomes:** funcões exportadas com verbos (`NewAgent`, `SelectBestModel`)
-- **Testes:** coloque em `*_test.go` no mesmo pacote; use `t.Helper()` em helpers
-- **TUI:** use apenas ANSI escape codes nativos — nenhuma biblioteca externa
-- **Agent loop:** limite de 20 iterações; formato `TOOL_CALL:tool_name{json}`
-- **Config:** prioridade `-url` flag > `LLAMA_URL` env > `http://localhost:8080`
-- **Modelo:** prioridade `status.value == "loaded"` > hardware detection fallback
+- **Erros:** sempre verifique `if err != nil` — nunca ignore erros.
+- **Importação:** organize em grupos (padrão, internal, third-party).
+- **Nomes:** funções exportadas com verbos (`NewAgent`, `SelectBestModel`).
+- **Testes:** coloque em `*_test.go` no mesmo pacote; use `t.Helper()` em helpers.
+- **TUI:** use apenas ANSI escape codes nativos — nenhuma biblioteca externa.
+- **Agent loop:** limite de 20 iterações; formato de tool call via JSON.
+- **Config:** prioridade `-url` flag > `LLAMA_URL` env > `http://localhost:8080`.
 
 ## Testes
 
-- Execute `go test ./... -v` antes de qualquer commit
-- Todos os 21 testes devem passar
-- Ferramentas de arquivo usam `BaseDir` para isolar testes do host filesystem
-- Não adicione junk files (`a.go`, `b.go`, etc.) em `internal/agent/`
+- Execute `go test ./... -v` antes de qualquer commit.
+- Todos os testes devem passar.
+- Ferramentas de arquivo usam `BaseDir` para isolar testes do host filesystem.
+- Não adicione junk files (`a.go`, `b.go`, etc.) em `internal/agent/`.
 
 ## Git workflow
 
 - Mensagens de commit: `feat:`, `fix:`, `refactor:`, `docs:`, `test:`
-- Um commit = uma mudança lógica
-- Nunca commitar segredos, chaves ou arquivos gerados (`dist/`, `*.exe`)
+- Um commit = uma mudança lógica.
+- Nunca commitar segredos, chaves ou arquivos gerados (`dist/`, `*.exe`).
 
 ## Fronteiras
 
 **SEMPRE:**
-- Executar `go test ./... -v` antes de finalizar qualquer mudança
-- Manter zero dependências externas (exceto Go padrão)
-- Isolar testes com `t.TempDir()` para ferramentas de arquivo
+- Executar `go test ./... -v` antes de finalizar qualquer mudança.
+- Manter zero dependências externas (exceto Go padrão).
+- Isolar testes com `t.TempDir()` para ferramentas de arquivo.
 
 **PEDIR ANTES:**
-- Adicionar novas dependências externas
-- Modificar arquivos em `docs/` ou `README.md`
-- Alterar a estrutura de ferramentas do agent
+- Adicionar novas dependências externas.
+- Modificar arquivos em `docs/` ou `README.md`.
+- Alterar a estrutura de ferramentas do agent.
 
 **NUNCA:**
-- Touch segredos, `.env`, ou credenciais
-- Commitar binários em `dist/`
-- Criar arquivos com `package main` fora de `cmd/`
-- Usar React, Vue, Tailwind ou bibliotecas de frontend (este projeto é Go puro)
-- Ignorar erros de Go (`if err != nil` é obrigatório)
+- Touch segredos, `.env`, ou credenciais.
+- Commitar binários em `dist/`.
+- Criar arquivos com `package main` fora de `cmd/`.
+- Usar React, Vue, Tailwind ou bibliotecas de frontend.
+- Ignorar erros de Go (`if err != nil` é obrigatório).

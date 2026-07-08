@@ -5,8 +5,8 @@ Zé é um agente de programação local que opera via `llama.cpp` (llama-server)
 ## Recursos
 
 - TUI com chat e input (ANSI escape codes, sem bibliotecas)
-- Loop multi-step com tool-use (write, read, list, go doc)
-- Detecção automática de modelo carregado no llama-server
+- Loop multi-step com tool-use (`read_file`, `write_file`, `edit_file`, `list_files`, `go_doc`)
+- Detecção automática de hardware e seleção de melhor modelo carregado no llama-server
 - System prompt otimizado para Gemma 4
 - Build multi-plataforma via GoReleaser
 
@@ -17,10 +17,10 @@ Zé é um agente de programação local que opera via `llama.cpp` (llama-server)
 go install github.com/goreleaser/goreleaser/v2@latest
 
 # Build local
-goreleaser build --snapshot
+go build ./cmd/ze
 
-# Release completo
-goreleaser release --snapshot
+# Build multi-plataforma (snapshot)
+goreleaser build --snapshot --clean
 ```
 
 ## Uso
@@ -30,7 +30,7 @@ goreleaser release --snapshot
 llama-server --hf-repo google/gemma-4-12B-it-qat-q4_0-gguf --port 8080
 
 # Execute o Zé
-./ze
+./ze --url http://localhost:8080
 ```
 
 ## Configuração
@@ -40,6 +40,12 @@ llama-server --hf-repo google/gemma-4-12B-it-qat-q4_0-gguf --port 8080
 | CLI flag `-url` | `http://localhost:8080` |
 | Env `LLAMA_URL` | `http://localhost:8080` |
 | Default | `http://localhost:8080` |
+
+| Método | Valor Padrão |
+|---|---|
+| CLI flag `-timeout` | `60s` |
+| Env `LLAMA_TIMEOUT` | `60s` |
+| Default | `60s` |
 
 ## Build Multi-Plataforma
 
