@@ -42,7 +42,7 @@ func ParseConfig(args []string, env map[string]string) (*Config, error) {
 		defaultURL = val
 	}
 
-	defaultTimeout := "60s"
+	defaultTimeout := "5m"
 	if val, ok := env["LLAMA_TIMEOUT"]; ok && val != "" {
 		defaultTimeout = val
 	}
