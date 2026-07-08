@@ -65,6 +65,13 @@ type ChatMessage struct {
 	ToolCalls []ToolCall  `json:"tool_calls,omitempty"`
 }
 
+// Usage represents token usage in a chat completion.
+type Usage struct {
+	PromptTokens     int `json:"prompt_tokens"`
+	CompletionTokens int `json:"completion_tokens"`
+	TotalTokens      int `json:"total_tokens"`
+}
+
 // ChatRequest is the structure for llama-server chat completion request (OpenAI compatible).
 type ChatRequest struct {
 	Model       string           `json:"model"`
@@ -80,6 +87,7 @@ type ChatResponse struct {
 		Message ChatMessage `json:"message"`
 		Finish  string      `json:"finish_reason"`
 	} `json:"choices"`
+	Usage Usage `json:"usage"`
 }
 
 // Client defines the interface for interacting with an LLM server.
@@ -94,11 +102,12 @@ type LlamaServerClient struct {
 	HTTP    *http.Client
 }
 
-func NewLlamaServerClient(baseURL string) *LlamaServerClient {
+// NewLlamaServerClient creates a new client for llama-server API with a specified timeout.
+func NewLlamaServerClient(baseURL string, timeout time.Duration) *LlamaServerClient {
 	return &LlamaServerClient{
 		BaseURL: baseURL,
 		HTTP: &http.Client{
-			Timeout: 60 * time.Second,
+			Timeout: timeout,
 		},
 	}
 }

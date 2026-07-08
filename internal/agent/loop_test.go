@@ -45,6 +45,11 @@ func (m *mockLLMClient) Chat(req *llm.ChatRequest) (*llm.ChatResponse, error) {
 		}{
 			{Message: msg, Finish: "stop"},
 		},
+		Usage: llm.Usage{
+			PromptTokens:     10,
+			CompletionTokens: 10,
+			TotalTokens:      20,
+		},
 	}, nil
 }
 
@@ -70,8 +75,8 @@ func newTestAgent(t *testing.T, mock *mockLLMClient, toolList []tools.Tool) *Age
 			fixedTools = append(fixedTools, tool)
 		}
 	}
-
-	return NewAgent(mock, "gemma-4-9b", fixedTools)
+	
+	return NewAgent(mock, "gemma-4-9b", fixedTools, false)
 }
 
 func TestRun_NoToolCall_ReturnsDirectAnswer(t *testing.T) {
@@ -80,7 +85,7 @@ func TestRun_NoToolCall_ReturnsDirectAnswer(t *testing.T) {
 	}}
 	agent := newTestAgent(t, mock, nil)
 
-	resp, err := agent.Run("What can you do?")
+	resp, _, err := agent.Run("What can you do?")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -111,7 +116,7 @@ func TestRun_WithToolCall_ReCallsLLM(t *testing.T) {
 	}}
 	agent := newTestAgent(t, mock, []tools.Tool{&tools.FileWriteTool{}})
 
-	resp, err := agent.Run("Write a Go file")
+	resp, _, err := agent.Run("Write a Go file")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -127,7 +132,7 @@ func TestRun_MaxIterations_WhenOnlyToolCalls(t *testing.T) {
 	mock := &mockLLMClient{infiniteToolCalls: true}
 	agent := newTestAgent(t, mock, []tools.Tool{&tools.FileWriteTool{}})
 
-	_, err := agent.Run("Write something")
+	_, _, err := agent.Run("Write something")
 	if err == nil {
 		t.Fatal("expected max iterations error")
 	}
@@ -164,7 +169,7 @@ func TestRun_MultipleToolCallsInOneResponse(t *testing.T) {
 	}}
 	agent := newTestAgent(t, mock, []tools.Tool{&tools.FileWriteTool{}})
 
-	resp, err := agent.Run("Write two files")
+	resp, _, err := agent.Run("Write two files")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -195,7 +200,7 @@ func TestRun_UnknownTool_ReturnsErrorInResult(t *testing.T) {
 	}}
 	agent := newTestAgent(t, mock, nil)
 
-	resp, err := agent.Run("Use unknown tool")
+	resp, _, err := agent.Run("Use unknown tool")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -206,3 +211,4 @@ func TestRun_UnknownTool_ReturnsErrorInResult(t *testing.T) {
 		t.Errorf("expected 2 LLM calls, got %d", mock.callCount)
 	}
 }
+

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"testing"
 	"bufio"
+	"github.com/ronoaldo/ze/internal/agent"
 )
 
 func TestRun_ShellBehavior_CookedMode(t *testing.T) {
@@ -23,12 +24,12 @@ func TestRun_ShellBehavior_CookedMode(t *testing.T) {
 
 	errStop := errors.New("stop loop")
 	handlerCalled := false
-	handler := func(msg string) (string, error) {
+	handler := func(msg string) (string, agent.AgentStats, error) {
 		handlerCalled = true
 		if msg != "hi" {
 			t.Errorf("Expected 'hi', got: %q", msg)
 		}
-		return "", errStop
+		return "", agent.AgentStats{}, errStop
 	}
 
 	_ = tui.Run(handler)
@@ -50,12 +51,12 @@ func TestRun_ShellBehavior_StandardInput(t *testing.T) {
 
 	errStop := errors.New("stop loop")
 	handlerCalled := false
-	handler := func(msg string) (string, error) {
+	handler := func(msg string) (string, agent.AgentStats, error) {
 		handlerCalled = true
 		if msg != "olá" {
 			t.Errorf("Expected 'olá', got: %q", msg)
 		}
-		return "", errStop
+		return "", agent.AgentStats{}, errStop
 	}
 
 	_ = tui.Run(handler)

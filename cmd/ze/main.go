@@ -2,9 +2,11 @@ package main
 
 import (
 	"errors"
+	"flag"
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/ronoaldo/ze/internal/agent"
 	"github.com/ronoaldo/ze/internal/commands"
@@ -20,25 +22,77 @@ var (
 	date    = "unknown"
 )
 
-func main() {
-	// Handle --version flag
-	for _, arg := range os.Args[1:] {
-		if arg == "--version" || arg == "-v" {
-			fmt.Printf("ze version %s\ncommit: %s\ndate: %s\n", version, commit, date)
-			return
-		}
+// Config holds the application configuration.
+type Config struct {
+	URL     string
+	Timeout time.Duration
+	Version bool
+	Verbose bool
+}
+
+// ParseConfig parses command line arguments and environment variables.
+// It follows the priority: Flag > Environment Variable > Default.
+func ParseConfig(args []string, env map[string]string) (*Config, error) {
+	fs := flag.NewFlagSet("ze", flag.ContinueOnError)
+
+	// Default values
+	defaultURL := "http://localhost:8084"
+	if val, ok := env["LLAMA_URL"]; ok && val != "" {
+		defaultURL = val
 	}
 
-	// Determine llama-server URL: flag > env var > default
-	url := flagOrEnvOr("http://localhost:8084", "-url", "LLAMA_URL")
+	defaultTimeout := "60s"
+	if val, ok := env["LLAMA_TIMEOUT"]; ok && val != "" {
+		defaultTimeout = val
+	}
+
+	// Define flags
+	urlFlag := fs.String("url", defaultURL, "Llama server URL")
+	timeoutFlag := fs.String("timeout", defaultTimeout, "Timeout duration (e.g. 60s, 5m)")
+	versionFlag := fs.Bool("version", false, "Show version")
+	vShortFlag := fs.Bool("v", false, "Show version (short)")
+	verboseFlag := fs.Bool("verbose", false, "Enable verbose tool output")
+
+	if err := fs.Parse(args); err != nil {
+		return nil, err
+	}
+
+	timeout, err := time.ParseDuration(*timeoutFlag)
+	if err != nil {
+		return nil, fmt.Errorf("invalid timeout duration: %w", err)
+	}
+
+	return &Config{
+		URL:     *urlFlag,
+		Timeout: timeout,
+		Version: *versionFlag || *vShortFlag,
+		Verbose: *verboseFlag,
+	}, nil
+}
+
+func main() {
+	// Use os.Args[1:] to exclude the program name
+	cfg, err := ParseConfig(os.Args[1:], osEnvironAsMap())
+	if err != nil {
+		// If it's a help message or usage error, flag.Parse already printed it.
+		if !strings.Contains(err.Error(), "flag has no usage") && !strings.Contains(err.Error(), "help") {
+			fmt.Fprintf(os.Stderr, "Error parsing flags: %v\n", err)
+		}
+		os.Exit(1)
+	}
+
+	if cfg.Version {
+		fmt.Printf("ze version %s\ncommit: %s\ndate: %s\n", version, commit, date)
+		return
+	}
 
 	// Create real client
-	client := llm.NewLlamaServerClient(url)
+	client := llm.NewLlamaServerClient(cfg.URL, cfg.Timeout)
 
 	// Discover available models from the server
 	availableModels, err := client.ListModels()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Warning: could not list models from %s: %v\nUsing hardware detection.\n", url, err)
+		fmt.Fprintf(os.Stderr, "Warning: could not list models from %s: %v\nUsing hardware detection.\n", cfg.URL, err)
 		availableModels = nil
 	}
 
@@ -54,52 +108,48 @@ func main() {
 	}
 
 	// Create TUI
-	t := tui.New()
+	t := tui.New(cfg.Verbose)
 
 	// Create agent with full multi-step loop and reporter
-	zeAgent := agent.NewAgent(client, modelName, availableTools)
+	zeAgent := agent.NewAgent(client, modelName, availableTools, cfg.Verbose)
 	zeAgent.Reporter = t
 
 	// Register commands
 	commands.RegisterCommands()
 
 	// Show model info
-	fmt.Fprintf(os.Stderr, "Model: %s\nServer: %s\n", modelName, url)
+	fmt.Fprintf(os.Stderr, "[ Model: %s | Server: %s | Timeout: %v | Verbose: %v ]\n", modelName, cfg.URL, cfg.Timeout, cfg.Verbose)
 
 	// Run TUI — wraps the agent's Run method
-	err = t.Run(func(msg string) (string, error) {
+	err = t.Run(func(msg string) (string, agent.AgentStats, error) {
 		resp, cmdErr := commands.ExecuteCommand(msg)
 		if cmdErr == nil {
-			return resp, nil
+			return resp, agent.AgentStats{}, nil
 		}
 		if errors.Is(cmdErr, commands.ErrQuit) {
-			return "", cmdErr
+			return "", agent.AgentStats{}, cmdErr
 		}
-		return zeAgent.Run(msg)
+
+		// If it's a command that failed (e.g. unknown command), return as response
+		if strings.HasPrefix(msg, "/") {
+			return fmt.Sprintf("Error: %v", cmdErr), agent.AgentStats{}, nil
+		}
+
+		// Otherwise, it's a user message for the agent
+		res, stats, llmErr := zeAgent.Run(msg)
+		if llmErr != nil {
+			return fmt.Sprintf("Error: %v", llmErr), stats, nil
+		}
+		return res, stats, nil
 	})
 
 	if err != nil {
+		if errors.Is(err, commands.ErrQuit) {
+			os.Exit(0)
+		}
 		fmt.Fprintf(os.Stderr, "\nError: %v\n", err)
 		os.Exit(1)
 	}
-}
-
-// flagOrEnvOr returns the first non-empty value among flag, env var, and default.
-func flagOrEnvOr(defaultVal, flagName, envVar string) string {
-	// Try flag first
-	for i := 1; i < len(os.Args); i++ {
-		if os.Args[i] == "-"+flagName && i+1 < len(os.Args) {
-			return os.Args[i+1]
-		}
-		if strings.HasPrefix(os.Args[i], "-"+flagName+"=") {
-			return strings.TrimPrefix(os.Args[i], "-"+flagName+"=")
-		}
-	}
-	// Try env var
-	if val := os.Getenv(envVar); val != "" {
-		return val
-	}
-	return defaultVal
 }
 
 // selectModel picks the best model from the server or falls back to hardware detection.
@@ -123,4 +173,16 @@ func selectModel(availableModels []llm.ModelInfo) string {
 	// 3. Fall back to hardware detection (no model loaded on server)
 	res := llm.DetectHardware()
 	return llm.SelectBestModel(res)
+}
+
+// osEnvironAsMap converts os.Environ() to a map for testing/parsing.
+func osEnvironAsMap() map[string]string {
+	env := make(map[string]string)
+	for _, e := range os.Environ() {
+		pair := strings.SplitN(e, "=", 2)
+		if len(pair) == 2 {
+			env[pair[0]] = pair[1]
+		}
+	}
+	return env
 }

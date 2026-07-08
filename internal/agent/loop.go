@@ -3,6 +3,7 @@ package agent
 import (
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/ronoaldo/ze/internal/llm"
 	"github.com/ronoaldo/ze/internal/prompt"
@@ -11,23 +12,35 @@ import (
 
 const maxIterations = 20
 
+// AgentStats contains performance metrics for an agent run.
+type AgentStats struct {
+	Duration      time.Duration
+	PromptTokens  int
+	CompTokens    int
+	TotalTokens   int
+	TokensPerSec  float64
+}
+
 // AgentReporter defines an interface for reporting agent activity to the UI.
 type AgentReporter interface {
 	ReportToolCall(toolName string, args string)
+	ReportToolCallVerbose(toolName string, args string)
 	ReportToolResult(toolName string, result string, err error)
 }
 
+
 // Agent represents the core programming agent.
 type Agent struct {
-	Client   llm.Client
-	Model    string // The selected model name
-	Tools    map[string]tools.Tool
-	ToolDefs []llm.ToolDefinition
-	History  []llm.ChatMessage
-	Reporter AgentReporter // Optional reporter for UI updates
+	Client    llm.Client
+	Model     string // The selected model name
+	Tools     map[string]tools.Tool
+	ToolDefs  []llm.ToolDefinition
+	History   []llm.ChatMessage
+	Reporter  AgentReporter // Optional reporter for UI updates
+	Verbose   bool
 }
 
-func NewAgent(client llm.Client, model string, availableTools []tools.Tool) *Agent {
+func NewAgent(client llm.Client, model string, availableTools []tools.Tool, verbose bool) *Agent {
 	toolMap := make(map[string]tools.Tool)
 	toolDefs := make([]llm.ToolDefinition, 0, len(availableTools))
 	for _, t := range availableTools {
@@ -45,34 +58,43 @@ func NewAgent(client llm.Client, model string, availableTools []tools.Tool) *Age
 			},
 		})
 	}
-
+	
 	return &Agent{
 		Client:   client,
 		Model:    model,
 		Tools:    toolMap,
 		ToolDefs: toolDefs,
 		History:  []llm.ChatMessage{},
+		Verbose:  verbose,
 	}
 }
 
-// Run processes a user message and returns the agent's response or an error.
-// It implements a multi-step loop: LLM → tool calls → LLM → ... → final answer.
-func (a *Agent) Run(userInput string) (string, error) {
+// Run processes a user message and returns the agent's response, stats, or an error.
+func (a *Agent) Run(userInput string) (string, AgentStats, error) {
+	startTime := time.Now()
+	var totalPromptTokens int
+	var totalCompTokens int
+
 	// 1. Add user message to history
 	a.History = append(a.History, llm.ChatMessage{Role: "user", Content: userInput})
 
-	// 2. Multi-step loop: call LLM, execute tools, repeat until no more tool calls
+	// 2. Multi-step loop
 	for i := 0; i < maxIterations; i++ {
 		req := a.prepareRequest()
 
 		resp, err := a.Client.Chat(req)
+
 		if err != nil {
-			return "", fmt.Errorf("LLM error: %w", err)
+			return "", AgentStats{}, fmt.Errorf("LLM error: %w", err)
 		}
 
 		if len(resp.Choices) == 0 {
-			return "No response from model.", nil
+			return "No response from model.", AgentStats{}, nil
 		}
+
+		// Track tokens
+		totalPromptTokens += resp.Usage.PromptTokens
+		totalCompTokens += resp.Usage.CompletionTokens
 
 		assistantMsg := resp.Choices[0].Message
 		a.History = append(a.History, assistantMsg)
@@ -81,18 +103,25 @@ func (a *Agent) Run(userInput string) (string, error) {
 		if len(assistantMsg.ToolCalls) > 0 {
 			toolResults, err := a.handleToolCalls(assistantMsg.ToolCalls)
 			if err != nil {
-				return "", err
+				return "", AgentStats{}, err
 			}
-			// Add tool results as "tool" messages to history.
 			a.History = append(a.History, toolResults...)
-			continue // loop back: call LLM again with the tool results
+			continue
 		}
 
 		// No more tool calls — this is the final answer
-		return assistantMsg.Content, nil
+		duration := time.Since(startTime)
+		stats := AgentStats{
+			Duration:     duration,
+			PromptTokens: totalPromptTokens,
+			CompTokens:   totalCompTokens,
+			TotalTokens:  totalPromptTokens + totalCompTokens,
+			TokensPerSec: float64(totalCompTokens) / duration.Seconds(),
+		}
+		return assistantMsg.Content, stats, nil
 	}
 
-	return "", fmt.Errorf("reached max iterations (%d) without a final answer", maxIterations)
+	return "", AgentStats{}, fmt.Errorf("reached max iterations (%d) without a final answer", maxIterations)
 }
 
 func (a *Agent) prepareRequest() *llm.ChatRequest {
@@ -113,7 +142,14 @@ func (a *Agent) handleToolCalls(toolCalls []llm.ToolCall) ([]llm.ChatMessage, er
 	for _, tc := range toolCalls {
 		var args map[string]interface{}
 		if err := json.Unmarshal(tc.Function.Arguments, &args); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal tool arguments: %w", err)
+			var doubleEncoded string
+			if err2 := json.Unmarshal(tc.Function.Arguments, &doubleEncoded); err2 == nil {
+				if err3 := json.Unmarshal([]byte(doubleEncoded), &args); err3 != nil {
+					return nil, fmt.Errorf("failed to unmarshal tool arguments (even after decoding string): %w. Content: %s", err3, doubleEncoded)
+				}
+			} else {
+				return nil, fmt.Errorf("failed to unmarshal tool arguments: %w. Arguments: %s", err, string(tc.Function.Arguments))
+			}
 		}
 
 		if a.Reporter != nil {

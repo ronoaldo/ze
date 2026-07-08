@@ -1,10 +1,10 @@
 {
   "$schema": "https://opencode.ai/config.json",
   "agent": {
-    "go-engineer": {
-      "description": "O agente especialista em Go que substitui o Build padrão.",
+    "coding": {
+      "description": "Custom Coding Agent.",
     }
   },
-  "default_agent": "go-engineer"
+  "default_agent": "coding"
 }
 

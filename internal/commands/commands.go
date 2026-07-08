@@ -28,6 +28,25 @@ func RegisterCommands() {
 			return "", ErrQuit
 		},
 	})
+	Register(Command{
+		Name:        "/exit",
+		Description: "Exit the session",
+		Execute: func(args []string) (string, error) {
+			return "", ErrQuit
+		},
+	})
+	Register(Command{
+		Name:        "/help",
+		Description: "Show available commands",
+		Execute: func(args []string) (string, error) {
+			var sb strings.Builder
+			sb.WriteString("Available commands:\n")
+			for name, cmd := range Registry {
+				sb.WriteString(fmt.Sprintf("  %s: %s\n", name, cmd.Description))
+			}
+			return sb.String(), nil
+		},
+	})
 }
 
 func ExecuteCommand(input string) (string, error) {
