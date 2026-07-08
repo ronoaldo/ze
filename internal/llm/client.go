@@ -32,18 +32,46 @@ type modelListResponse struct {
 	Data []modelListItem `json:"data"`
 }
 
-// ChatRequest is the structure for llama-server chat completion request (OpenAI compatible).
-type ChatRequest struct {
-	Model       string         `json:"model"`
-	Messages    []ChatMessage  `json:"messages"`
-	Temperature float64        `json:"temperature,omitempty"`
-	MaxTokens   int            `json:"max_tokens,omitempty"`
+// ToolCallFunction represents a tool call function.
+type ToolCallFunction struct {
+	Name      string          `json:"name"`
+	Arguments json.RawMessage `json:"arguments"`
+}
+
+// ToolCall represents a tool call from the LLM.
+type ToolCall struct {
+	ID       string           `json:"id"`
+	Type     string           `json:"type"`
+	Function ToolCallFunction `json:"function"`
+}
+
+// ToolDefinition defines a tool available for the LLM.
+type ToolDefinition struct {
+	Type     string      `json:"type"`
+	Function FunctionDef `json:"function"`
+}
+
+// FunctionDef defines the function properties for a tool.
+type FunctionDef struct {
+	Name        string          `json:"name"`
+	Description string          `json:"description"`
+	Parameters  json.RawMessage `json:"parameters"`
 }
 
 // ChatMessage represents a single message in the chat history.
 type ChatMessage struct {
-	Role    string `json:"role"`
-	Content string `json:"content"`
+	Role       string      `json:"role"`
+	Content    string      `json:"content,omitempty"`
+	ToolCalls []ToolCall  `json:"tool_calls,omitempty"`
+}
+
+// ChatRequest is the structure for llama-server chat completion request (OpenAI compatible).
+type ChatRequest struct {
+	Model       string           `json:"model"`
+	Messages    []ChatMessage    `json:"messages"`
+	Temperature float64          `json:"temperature,omitempty"`
+	MaxTokens   int              `json:"max_tokens,omitempty"`
+	Tools       []ToolDefinition `json:"tools,omitempty"`
 }
 
 // ChatResponse is the structure for llama-server response.
@@ -102,7 +130,6 @@ func (c *LlamaServerClient) Chat(req *ChatRequest) (*ChatResponse, error) {
 }
 
 // ListModels retrieves available models from the llama-server.
-// It populates ModelInfo.Status from the server's status.value field.
 func (c *LlamaServerClient) ListModels() ([]ModelInfo, error) {
 	resp, err := c.HTTP.Get(c.BaseURL + "/v1/models")
 	if err != nil {

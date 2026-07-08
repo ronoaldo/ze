@@ -1,35 +1,49 @@
 package agent
 
 import (
+	"encoding/json"
 	"testing"
 
-	"ze/internal/llm"
-	"ze/internal/tools"
+	"github.com/ronoaldo/ze/internal/llm"
+	"github.com/ronoaldo/ze/internal/tools"
 )
 
 // mockLLMClient simulates LLM responses for testing.
 type mockLLMClient struct {
-	responses      []string
-	callCount      int
-	alwaysToolCall bool
+	responses []llm.ChatMessage
+	callCount int
+	infiniteToolCalls bool
 }
 
 func (m *mockLLMClient) Chat(req *llm.ChatRequest) (*llm.ChatResponse, error) {
 	m.callCount++
-	content := ""
-	if m.alwaysToolCall {
-		content = "TOOL_CALL:write_file{\"path\":\"x.go\",\"content\":\"y\"}"
+	var msg llm.ChatMessage
+	if m.infiniteToolCalls {
+		args, _ := json.Marshal(map[string]interface{}{"path": "test.go", "content": "y"})
+		msg = llm.ChatMessage{
+			Role: "assistant",
+			ToolCalls: []llm.ToolCall{
+				{
+					ID:   "call_1",
+					Type: "function",
+					Function: llm.ToolCallFunction{
+						Name:      "write_file",
+						Arguments: args,
+					},
+				},
+			},
+		}
 	} else if m.callCount <= len(m.responses) {
-		content = m.responses[m.callCount-1]
+		msg = m.responses[m.callCount-1]
 	} else {
-		content = "Final answer after tool use."
+		msg = llm.ChatMessage{Role: "assistant", Content: "Final answer after tool use."}
 	}
 	return &llm.ChatResponse{
 		Choices: []struct {
 			Message llm.ChatMessage `json:"message"`
 			Finish  string          `json:"finish_reason"`
 		}{
-			{Message: llm.ChatMessage{Role: "assistant", Content: content}},
+			{Message: msg, Finish: "stop"},
 		},
 	}, nil
 }
@@ -41,10 +55,8 @@ func (m *mockLLMClient) ListModels() ([]llm.ModelInfo, error) {
 // newTestAgent creates an agent with a temp dir for file operations.
 func newTestAgent(t *testing.T, mock *mockLLMClient, toolList []tools.Tool) *Agent {
 	t.Helper()
-	// Create temp dir for file tools
 	tmpDir := t.TempDir()
 
-	// Replace file tools with ones that use temp dir
 	fixedTools := make([]tools.Tool, 0, len(toolList))
 	for _, tool := range toolList {
 		switch tool.(type) {
@@ -63,7 +75,9 @@ func newTestAgent(t *testing.T, mock *mockLLMClient, toolList []tools.Tool) *Age
 }
 
 func TestRun_NoToolCall_ReturnsDirectAnswer(t *testing.T) {
-	mock := &mockLLMClient{responses: []string{"Hello, I can help you with code!"}}
+	mock := &mockLLMClient{responses: []llm.ChatMessage{
+		{Role: "assistant", Content: "Hello, I can help you with code!"},
+	}}
 	agent := newTestAgent(t, mock, nil)
 
 	resp, err := agent.Run("What can you do?")
@@ -79,11 +93,22 @@ func TestRun_NoToolCall_ReturnsDirectAnswer(t *testing.T) {
 }
 
 func TestRun_WithToolCall_ReCallsLLM(t *testing.T) {
-	mock := &mockLLMClient{
-		responses: []string{
-			"TOOL_CALL:write_file{\"path\":\"test.go\",\"content\":\"package main\"}",
+	args, _ := json.Marshal(map[string]interface{}{"path": "test.go", "content": "package main"})
+	mock := &mockLLMClient{responses: []llm.ChatMessage{
+		{
+			Role: "assistant",
+			ToolCalls: []llm.ToolCall{
+				{
+					ID:   "call_1",
+					Type: "function",
+					Function: llm.ToolCallFunction{
+						Name:      "write_file",
+						Arguments: args,
+					},
+				},
+			},
 		},
-	}
+	}}
 	agent := newTestAgent(t, mock, []tools.Tool{&tools.FileWriteTool{}})
 
 	resp, err := agent.Run("Write a Go file")
@@ -99,7 +124,7 @@ func TestRun_WithToolCall_ReCallsLLM(t *testing.T) {
 }
 
 func TestRun_MaxIterations_WhenOnlyToolCalls(t *testing.T) {
-	mock := &mockLLMClient{alwaysToolCall: true}
+	mock := &mockLLMClient{infiniteToolCalls: true}
 	agent := newTestAgent(t, mock, []tools.Tool{&tools.FileWriteTool{}})
 
 	_, err := agent.Run("Write something")
@@ -112,11 +137,31 @@ func TestRun_MaxIterations_WhenOnlyToolCalls(t *testing.T) {
 }
 
 func TestRun_MultipleToolCallsInOneResponse(t *testing.T) {
-	mock := &mockLLMClient{
-		responses: []string{
-			"TOOL_CALL:write_file{\"path\":\"a.go\",\"content\":\"package main\"}\nTOOL_CALL:write_file{\"path\":\"b.go\",\"content\":\"package main\"}",
+	args1, _ := json.Marshal(map[string]interface{}{"path": "a.go", "content": "package main"})
+	args2, _ := json.Marshal(map[string]interface{}{"path": "b.go", "content": "package main"})
+	mock := &mockLLMClient{responses: []llm.ChatMessage{
+		{
+			Role: "assistant",
+			ToolCalls: []llm.ToolCall{
+				{
+					ID:   "call_1",
+					Type: "function",
+					Function: llm.ToolCallFunction{
+						Name:      "write_file",
+						Arguments: args1,
+					},
+				},
+				{
+					ID:   "call_2",
+					Type: "function",
+					Function: llm.ToolCallFunction{
+						Name:      "write_file",
+						Arguments: args2,
+					},
+				},
+			},
 		},
-	}
+	}}
 	agent := newTestAgent(t, mock, []tools.Tool{&tools.FileWriteTool{}})
 
 	resp, err := agent.Run("Write two files")
@@ -132,19 +177,28 @@ func TestRun_MultipleToolCallsInOneResponse(t *testing.T) {
 }
 
 func TestRun_UnknownTool_ReturnsErrorInResult(t *testing.T) {
-	mock := &mockLLMClient{
-		responses: []string{
-			"TOOL_CALL:unknown_tool{\"arg\":\"val\"}",
+	args, _ := json.Marshal(map[string]interface{}{"arg": "val"})
+	mock := &mockLLMClient{responses: []llm.ChatMessage{
+		{
+			Role: "assistant",
+			ToolCalls: []llm.ToolCall{
+				{
+					ID:   "call_1",
+					Type: "function",
+					Function: llm.ToolCallFunction{
+						Name:      "unknown_tool",
+						Arguments: args,
+					},
+				},
+			},
 		},
-	}
-	// No tools registered — tool should be reported as not found
+	}}
 	agent := newTestAgent(t, mock, nil)
 
 	resp, err := agent.Run("Use unknown tool")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	// Should still get a response (tool error logged, LLM called again)
 	if resp != "Final answer after tool use." {
 		t.Errorf("expected 'Final answer after tool use.', got '%s'", resp)
 	}
@@ -152,5 +206,3 @@ func TestRun_UnknownTool_ReturnsErrorInResult(t *testing.T) {
 		t.Errorf("expected 2 LLM calls, got %d", mock.callCount)
 	}
 }
-
-// TestFile

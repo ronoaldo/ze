@@ -1,21 +1,23 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"strings"
 
-	"ze/internal/agent"
-	"ze/internal/llm"
-	"ze/internal/tools"
-	"ze/internal/tui"
+	"github.com/ronoaldo/ze/internal/agent"
+	"github.com/ronoaldo/ze/internal/commands"
+	"github.com/ronoaldo/ze/internal/llm"
+	"github.com/ronoaldo/ze/internal/tools"
+	"github.com/ronoaldo/ze/internal/tui"
 )
 
 // Version metadata injected by GoReleaser ldflags.
 var (
-	version  = "dev"
-	commit   = "none"
-	date     = "unknown"
+	version = "dev"
+	commit  = "none"
+	date    = "unknown"
 )
 
 func main() {
@@ -28,7 +30,7 @@ func main() {
 	}
 
 	// Determine llama-server URL: flag > env var > default
-	url := flagOrEnvOr("http://localhost:8080", "-url", "LLAMA_URL")
+	url := flagOrEnvOr("http://localhost:8084", "-url", "LLAMA_URL")
 
 	// Create real client
 	client := llm.NewLlamaServerClient(url)
@@ -51,17 +53,28 @@ func main() {
 		&tools.GoDocTool{},
 	}
 
-	// Create agent with full multi-step loop
+	// Create TUI
+	t := tui.New()
+
+	// Create agent with full multi-step loop and reporter
 	zeAgent := agent.NewAgent(client, modelName, availableTools)
+	zeAgent.Reporter = t
+
+	// Register commands
+	commands.RegisterCommands()
 
 	// Show model info
 	fmt.Fprintf(os.Stderr, "Model: %s\nServer: %s\n", modelName, url)
 
-	// Create TUI
-	t := tui.New()
-
 	// Run TUI — wraps the agent's Run method
 	err = t.Run(func(msg string) (string, error) {
+		resp, cmdErr := commands.ExecuteCommand(msg)
+		if cmdErr == nil {
+			return resp, nil
+		}
+		if errors.Is(cmdErr, commands.ErrQuit) {
+			return "", cmdErr
+		}
 		return zeAgent.Run(msg)
 	})
 

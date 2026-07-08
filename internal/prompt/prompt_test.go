@@ -29,13 +29,6 @@ func TestGetGemma4SystemPrompt_ContainsToolNames(t *testing.T) {
 	}
 }
 
-func TestGetGemma4SystemPrompt_ContainsToolCallFormat(t *testing.T) {
-	p := GetGemma4SystemPrompt()
-	if !strings.Contains(p, "TOOL_CALL:") {
-		t.Error("prompt should describe TOOL_CALL: format")
-	}
-}
-
 func TestGetGemma4SystemPrompt_ContainsErrorHandling(t *testing.T) {
 	p := GetGemma4SystemPrompt()
 	if !strings.Contains(p, "error") && !strings.Contains(p, "Error") {

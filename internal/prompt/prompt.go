@@ -30,13 +30,10 @@ Retrieves Go documentation for a package using "go doc".
 Arguments:
 - package (string, required): The Go package name to document.
 
-## Tool Calling Format
-When you need to use a tool, respond EXACTLY in this format on a single line:
-TOOL_CALL:tool_name{"arg1":"value1","arg2":"value2"}
+## Tool Calling
+When you need to use a tool, use the standard tool calling mechanism.
 
 Rules for tool calling:
-- Use ONLY this format. No explanation, no markdown, no extra text on the same line.
-- If multiple tool calls are needed, put each on a separate line.
 - After executing tool calls, wait for the results. Do NOT generate code based on assumptions — always read files first.
 
 ## Code Generation Guidelines

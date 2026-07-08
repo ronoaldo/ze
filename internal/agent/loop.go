@@ -3,34 +3,55 @@ package agent
 import (
 	"encoding/json"
 	"fmt"
-	"strings"
 
-	"ze/internal/llm"
-	"ze/internal/prompt"
-	"ze/internal/tools"
+	"github.com/ronoaldo/ze/internal/llm"
+	"github.com/ronoaldo/ze/internal/prompt"
+	"github.com/ronoaldo/ze/internal/tools"
 )
 
 const maxIterations = 20
 
+// AgentReporter defines an interface for reporting agent activity to the UI.
+type AgentReporter interface {
+	ReportToolCall(toolName string, args string)
+	ReportToolResult(toolName string, result string, err error)
+}
+
 // Agent represents the core programming agent.
 type Agent struct {
-	Client  llm.Client
-	Model   string // The selected model name
-	Tools   map[string]tools.Tool
-	History []llm.ChatMessage
+	Client   llm.Client
+	Model    string // The selected model name
+	Tools    map[string]tools.Tool
+	ToolDefs []llm.ToolDefinition
+	History  []llm.ChatMessage
+	Reporter AgentReporter // Optional reporter for UI updates
 }
 
 func NewAgent(client llm.Client, model string, availableTools []tools.Tool) *Agent {
 	toolMap := make(map[string]tools.Tool)
+	toolDefs := make([]llm.ToolDefinition, 0, len(availableTools))
 	for _, t := range availableTools {
 		toolMap[t.Name()] = t
+		
+		schema := t.JSONSchema()
+		schemaBytes, _ := json.Marshal(schema["parameters"])
+		
+		toolDefs = append(toolDefs, llm.ToolDefinition{
+			Type: "function",
+			Function: llm.FunctionDef{
+				Name:        t.Name(),
+				Description: schema["description"].(string),
+				Parameters:  schemaBytes,
+			},
+		})
 	}
 
 	return &Agent{
-		Client:  client,
-		Model:   model,
-		Tools:   toolMap,
-		History: []llm.ChatMessage{},
+		Client:   client,
+		Model:    model,
+		Tools:    toolMap,
+		ToolDefs: toolDefs,
+		History:  []llm.ChatMessage{},
 	}
 }
 
@@ -57,13 +78,13 @@ func (a *Agent) Run(userInput string) (string, error) {
 		a.History = append(a.History, assistantMsg)
 
 		// Check for tool calls
-		if strings.Contains(assistantMsg.Content, "TOOL_CALL:") {
-			toolResults, err := a.handleToolCalls(assistantMsg.Content)
+		if len(assistantMsg.ToolCalls) > 0 {
+			toolResults, err := a.handleToolCalls(assistantMsg.ToolCalls)
 			if err != nil {
 				return "", err
 			}
-			// Add tool results as a "tool" message to history so the LLM sees them
-			a.History = append(a.History, llm.ChatMessage{Role: "tool", Content: toolResults})
+			// Add tool results as "tool" messages to history.
+			a.History = append(a.History, toolResults...)
 			continue // loop back: call LLM again with the tool results
 		}
 
@@ -83,53 +104,50 @@ func (a *Agent) prepareRequest() *llm.ChatRequest {
 	return &llm.ChatRequest{
 		Model:    a.Model,
 		Messages: messages,
+		Tools:    a.ToolDefs,
 	}
 }
 
-func (a *Agent) handleToolCalls(content string) (string, error) {
-	// Parses TOOL_CALL:tool_name{json} lines, executes each tool,
-	// and returns a summary of results to be added to the LLM history.
-	lines := strings.Split(content, "\n")
-	var results strings.Builder
-
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		if line == "" {
-			continue
-		}
-		if !strings.HasPrefix(line, "TOOL_CALL:") {
-			continue
-		}
-
-		rest := line[10:] // strip "TOOL_CALL:"
-		braceIdx := strings.Index(rest, "{")
-		if braceIdx < 0 {
-			results.WriteString(fmt.Sprintf("[Error: invalid tool call format: %s]\n", line))
-			continue
-		}
-
-		toolName := strings.TrimSpace(rest[:braceIdx])
-		argsJSON := rest[braceIdx:]
-
+func (a *Agent) handleToolCalls(toolCalls []llm.ToolCall) ([]llm.ChatMessage, error) {
+	var toolMessages []llm.ChatMessage
+	for _, tc := range toolCalls {
 		var args map[string]interface{}
-		if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
-			results.WriteString(fmt.Sprintf("[Error: failed to parse args for '%s': %v]\n", toolName, err))
-			continue
+		if err := json.Unmarshal(tc.Function.Arguments, &args); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal tool arguments: %w", err)
 		}
 
-		tool, ok := a.Tools[toolName]
+		if a.Reporter != nil {
+			a.Reporter.ReportToolCall(tc.Function.Name, string(tc.Function.Arguments))
+		}
+
+		tool, ok := a.Tools[tc.Function.Name]
 		if !ok {
-			results.WriteString(fmt.Sprintf("[Error: tool '%s' not found]\n", toolName))
+			errMsg := fmt.Sprintf("[Error: tool '%s' not found]", tc.Function.Name)
+			toolMessages = append(toolMessages, llm.ChatMessage{
+				Role:    "tool",
+				Content: errMsg,
+			})
 			continue
 		}
 
 		result, err := tool.Execute(args)
 		if err != nil {
-			results.WriteString(fmt.Sprintf("[Tool Error (%s): %v]\n", toolName, err))
+			errResult := fmt.Sprintf("[Tool Error (%s): %v]", tc.Function.Name, err)
+			toolMessages = append(toolMessages, llm.ChatMessage{
+				Role:    "tool",
+				Content: errResult,
+			})
 		} else {
-			results.WriteString(fmt.Sprintf("[Tool Result (%s)]: %s\n", toolName, result))
+			toolMessages = append(toolMessages, llm.ChatMessage{
+				Role:    "tool",
+				Content: result,
+			})
+		}
+
+		if a.Reporter != nil {
+			a.Reporter.ReportToolResult(tc.Function.Name, result, err)
 		}
 	}
 
-	return results.String(), nil
+	return toolMessages, nil
 }
