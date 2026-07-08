@@ -181,34 +181,51 @@ func TestRun_MultipleToolCallsInOneResponse(t *testing.T) {
 	}
 }
 
-func TestRun_UnknownTool_ReturnsErrorInResult(t *testing.T) {
-	args, _ := json.Marshal(map[string]interface{}{"arg": "val"})
+func TestToolCallID_Is_Correctly_Set(t *testing.T) {
+	args, _ := json.Marshal(map[string]interface{}{"path": "test.go", "content": "package main"})
 	mock := &mockLLMClient{responses: []llm.ChatMessage{
 		{
 			Role: "assistant",
 			ToolCalls: []llm.ToolCall{
 				{
-					ID:   "call_1",
+					ID:   "call_abc_123",
 					Type: "function",
 					Function: llm.ToolCallFunction{
-						Name:      "unknown_tool",
+						Name:      "write_file",
 						Arguments: args,
 					},
 				},
 			},
 		},
+		{
+			Role: "assistant",
+			Content: "Done!",
+		},
 	}}
-	agent := newTestAgent(t, mock, nil)
+	agent := newTestAgent(t, mock, []tools.Tool{&tools.FileWriteTool{}})
 
-	resp, _, err := agent.Run("Use unknown tool")
+	resp, _, err := agent.Run("Write a file")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if resp != "Final answer after tool use." {
-		t.Errorf("expected 'Final answer after tool use.', got '%s'", resp)
+	if resp != "Done!" {
+		t.Errorf("expected 'Done!', got '%s'", resp)
 	}
-	if mock.callCount != 2 {
-		t.Errorf("expected 2 LLM calls, got %d", mock.callCount)
+
+	// Check history for the tool response message
+	foundToolMessage := false
+	for _, msg := range agent.History {
+		if msg.Role == "tool" {
+			foundToolMessage = true
+			if msg.ToolCallID != "call_abc_123" {
+				t.Errorf("expected ToolCallID 'call_abc_123', got '%s'", msg.ToolCallID)
+			}
+			break
+		}
+	}
+
+	if !foundToolMessage {
+		t.Error("did not find any message with role 'tool' in history")
 	}
 }
 

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"time"
 )
 
@@ -38,6 +39,25 @@ type ToolCallFunction struct {
 	Arguments json.RawMessage `json:"arguments"`
 }
 
+func (tf *ToolCallFunction) UnmarshalJSON(data []byte) error {
+	type Alias ToolCallFunction
+	var aux Alias
+	if err := json.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+	*tf = ToolCallFunction(aux)
+
+	// Handle double-encoded string in Arguments.
+	// If the arguments are a JSON string (e.g., "\"{\\\"a\\\": 1}\""),
+	// unmarshal it into a string, then unmarshal that string back into the RawMessage.
+	var s string
+	if err := json.Unmarshal(tf.Arguments, &s); err == nil {
+		return json.Unmarshal([]byte(s), &tf.Arguments)
+	}
+
+	return nil
+}
+
 // ToolCall represents a tool call from the LLM.
 type ToolCall struct {
 	ID       string           `json:"id"`
@@ -60,9 +80,10 @@ type FunctionDef struct {
 
 // ChatMessage represents a single message in the chat history.
 type ChatMessage struct {
-	Role       string      `json:"role"`
-	Content    string      `json:"content,omitempty"`
-	ToolCalls []ToolCall  `json:"tool_calls,omitempty"`
+	Role        string     `json:"role"`
+	Content     string     `json:"content,omitempty"`
+	ToolCalls   []ToolCall `json:"tool_calls,omitempty"`
+	ToolCallID  string     `json:"tool_call_id,omitempty"`
 }
 
 // Usage represents token usage in a chat completion.
@@ -98,17 +119,17 @@ type Client interface {
 
 // LlamaServerClient is a client implementation for llama-server API.
 type LlamaServerClient struct {
-	BaseURL string
-	HTTP    *http.Client
+	BaseURL         string
+	HTTP            *http.Client
+	VerboseAPICalls bool
 }
 
 // NewLlamaServerClient creates a new client for llama-server API with a specified timeout.
-func NewLlamaServerClient(baseURL string, timeout time.Duration) *LlamaServerClient {
+func NewLlamaServerClient(baseURL string, timeout time.Duration, verboseAPICalls bool) *LlamaServerClient {
 	return &LlamaServerClient{
-		BaseURL: baseURL,
-		HTTP: &http.Client{
-			Timeout: timeout,
-		},
+		BaseURL:         baseURL,
+		HTTP:            &http.Client{Timeout: timeout},
+		VerboseAPICalls: verboseAPICalls,
 	}
 }
 
@@ -125,14 +146,23 @@ func (c *LlamaServerClient) Chat(req *ChatRequest) (*ChatResponse, error) {
 	}
 	defer resp.Body.Close()
 
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	if c.VerboseAPICalls {
+		fmt.Fprintf(os.Stderr, "\n--- [API REQUEST] ---\n%s\n", string(data))
+		fmt.Fprintf(os.Stderr, "--- [API RESPONSE] ---\n%s\n--------------------\n", string(body))
+	}
+
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
 		return nil, fmt.Errorf("server returned error status %d: %s", resp.StatusCode, string(body))
 	}
 
 	var chatResp ChatResponse
-	if err := json.NewDecoder(resp.Body).Decode(&chatResp); err != nil {
-		return nil, fmt.Errorf("failed to decode response: %w", err)
+	if err := json.Unmarshal(body, &chatResp); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w. Body: %s", err, string(body))
 	}
 
 	return &chatResp, nil

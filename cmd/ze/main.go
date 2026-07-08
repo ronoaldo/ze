@@ -24,10 +24,11 @@ var (
 
 // Config holds the application configuration.
 type Config struct {
-	URL     string
-	Timeout time.Duration
-	Version bool
-	Verbose bool
+	URL             string
+	Timeout         time.Duration
+	Version         bool
+	Verbose         bool
+	VerboseAPICalls bool
 }
 
 // ParseConfig parses command line arguments and environment variables.
@@ -52,6 +53,7 @@ func ParseConfig(args []string, env map[string]string) (*Config, error) {
 	versionFlag := fs.Bool("version", false, "Show version")
 	vShortFlag := fs.Bool("v", false, "Show version (short)")
 	verboseFlag := fs.Bool("verbose", false, "Enable verbose tool output")
+	verboseAPICallsFlag := fs.Bool("verbose-api-calls", false, "Log raw API requests and responses")
 
 	if err := fs.Parse(args); err != nil {
 		return nil, err
@@ -63,10 +65,11 @@ func ParseConfig(args []string, env map[string]string) (*Config, error) {
 	}
 
 	return &Config{
-		URL:     *urlFlag,
-		Timeout: timeout,
-		Version: *versionFlag || *vShortFlag,
-		Verbose: *verboseFlag,
+		URL:             *urlFlag,
+		Timeout:         timeout,
+		Version:         *versionFlag || *vShortFlag,
+		Verbose:         *verboseFlag,
+		VerboseAPICalls: *verboseAPICallsFlag,
 	}, nil
 }
 
@@ -87,7 +90,7 @@ func main() {
 	}
 
 	// Create real client
-	client := llm.NewLlamaServerClient(cfg.URL, cfg.Timeout)
+	client := llm.NewLlamaServerClient(cfg.URL, cfg.Timeout, cfg.VerboseAPICalls)
 
 	// Discover available models from the server
 	availableModels, err := client.ListModels()
@@ -105,6 +108,7 @@ func main() {
 		&tools.FileWriteTool{},
 		&tools.ListFilesTool{},
 		&tools.GoDocTool{},
+		&tools.EditFileTool{},
 	}
 
 	// Create TUI
@@ -118,7 +122,7 @@ func main() {
 	commands.RegisterCommands()
 
 	// Show model info
-	fmt.Fprintf(os.Stderr, "[ Model: %s | Server: %s | Timeout: %v | Verbose: %v ]\n", modelName, cfg.URL, cfg.Timeout, cfg.Verbose)
+	fmt.Fprintf(os.Stderr, "[ Model: %s | Server: %s | Timeout: %v | Verbose: %v | API Verbose: %v ]\n", modelName, cfg.URL, cfg.Timeout, cfg.Verbose, cfg.VerboseAPICalls)
 
 	// Run TUI — wraps the agent's Run method
 	err = t.Run(func(msg string) (string, agent.AgentStats, error) {

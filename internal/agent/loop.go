@@ -142,14 +142,7 @@ func (a *Agent) handleToolCalls(toolCalls []llm.ToolCall) ([]llm.ChatMessage, er
 	for _, tc := range toolCalls {
 		var args map[string]interface{}
 		if err := json.Unmarshal(tc.Function.Arguments, &args); err != nil {
-			var doubleEncoded string
-			if err2 := json.Unmarshal(tc.Function.Arguments, &doubleEncoded); err2 == nil {
-				if err3 := json.Unmarshal([]byte(doubleEncoded), &args); err3 != nil {
-					return nil, fmt.Errorf("failed to unmarshal tool arguments (even after decoding string): %w. Content: %s", err3, doubleEncoded)
-				}
-			} else {
-				return nil, fmt.Errorf("failed to unmarshal tool arguments: %w. Arguments: %s", err, string(tc.Function.Arguments))
-			}
+			return nil, fmt.Errorf("failed to unmarshal tool arguments: %w. Arguments: %s", err, string(tc.Function.Arguments))
 		}
 
 		if a.Reporter != nil {
@@ -160,8 +153,9 @@ func (a *Agent) handleToolCalls(toolCalls []llm.ToolCall) ([]llm.ChatMessage, er
 		if !ok {
 			errMsg := fmt.Sprintf("[Error: tool '%s' not found]", tc.Function.Name)
 			toolMessages = append(toolMessages, llm.ChatMessage{
-				Role:    "tool",
-				Content: errMsg,
+				Role:       "tool",
+				ToolCallID: tc.ID,
+				Content:    errMsg,
 			})
 			continue
 		}
@@ -170,13 +164,15 @@ func (a *Agent) handleToolCalls(toolCalls []llm.ToolCall) ([]llm.ChatMessage, er
 		if err != nil {
 			errResult := fmt.Sprintf("[Tool Error (%s): %v]", tc.Function.Name, err)
 			toolMessages = append(toolMessages, llm.ChatMessage{
-				Role:    "tool",
-				Content: errResult,
+				Role:       "tool",
+				ToolCallID: tc.ID,
+				Content:    errResult,
 			})
 		} else {
 			toolMessages = append(toolMessages, llm.ChatMessage{
-				Role:    "tool",
-				Content: result,
+				Role:       "tool",
+				ToolCallID: tc.ID,
+				Content:    result,
 			})
 		}
 

@@ -81,15 +81,22 @@ func (t *TUI) readLine() (string, error) {
 // summarizeArgs creates a human-readable summary of tool arguments.
 func (t *TUI) summarizeArgs(toolName string, argsJSON string) string {
 	var args map[string]interface{}
-	if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
+	
+	// Since the Agent now ensures Arguments are cleaned during unmarshaling,
+	// a single unmarshal attempt should be sufficient.
+	err := json.Unmarshal([]byte(argsJSON), &args)
+	if err != nil {
 		return argsJSON
 	}
 
+	// Extract path for most file-related tools
 	if path, ok := args["path"].(string); ok {
 		return path
 	}
 
-	if toolName == "go_doc" {
+	// Specific handling for other tools
+	switch toolName {
+	case "go_doc":
 		if pkg, ok := args["package"].(string); ok {
 			return pkg
 		}
@@ -108,16 +115,11 @@ func (t *TUI) summarizeResult(toolName string, result string) string {
 		if result != "" && !strings.HasSuffix(result, "\n") {
 			lines++
 		}
-		// The list_files implementation uses "- filename\n"
-		// so count lines is a good proxy for items.
-		// If result is empty, it's 0.
 		if result == "" {
 			return "0 items"
 		}
 		return fmt.Sprintf("%d items", lines)
-	case "write_file":
-		return "Success"
-	case "go_doc":
+	case "write_file", "go_doc":
 		return "Success"
 	default:
 		return "Success"
