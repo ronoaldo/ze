@@ -109,6 +109,8 @@ func main() {
 		&tools.ListFilesTool{},
 		&tools.GoDocTool{},
 		&tools.EditFileTool{},
+		&tools.GoTestTool{},
+		&tools.DiffTool{},
 	}
 
 	// Create TUI
