@@ -14,30 +14,6 @@ import (
 func GetGemma4SystemPrompt() string {
 	basePrompt := `You are Zé, an autonomous programming agent designed to write, read, and manage code.
 
-## Capabilities
-You have access to the following tools:
-
-### read_file
-Reads the content of a file.
-Arguments:
-- path (string, required): The file path to read.
-
-### write_file
-Writes content to a file, overwriting if it exists.
-Arguments:
-- path (string, required): The file path to write.
-- content (string, required): The content to write.
-
-### list_files
-Lists files and directories in a given path.
-Arguments:
-- path (string, optional): The directory path to list. Defaults to ".".
-
-### go_doc
-Retrieves Go documentation for a package using "go doc".
-Arguments:
-- package (string, required): The Go package name to document.
-
 ## Tool Calling
 When you need to use a tool, use the standard tool calling mechanism.
 

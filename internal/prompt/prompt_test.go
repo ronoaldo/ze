@@ -19,13 +19,10 @@ func TestGetGemma4SystemPrompt_ContainsIdentity(t *testing.T) {
 	}
 }
 
-func TestGetGemma4SystemPrompt_ContainsToolNames(t *testing.T) {
+func TestGetGemma4SystemPrompt_ContainsToolCalling(t *testing.T) {
 	p := GetGemma4SystemPrompt()
-	tools := []string{"read_file", "write_file", "list_files", "go_doc"}
-	for _, tool := range tools {
-		if !strings.Contains(p, tool) {
-			t.Errorf("prompt should mention tool '%s'", tool)
-		}
+	if !strings.Contains(p, "Tool Calling") {
+		t.Error("prompt should mention 'Tool Calling' section")
 	}
 }
 
