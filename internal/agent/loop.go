@@ -72,8 +72,9 @@ func NewAgent(client llm.Client, model string, availableTools []tools.Tool, verb
 // Run processes a user message and returns the agent's response, stats, or an error.
 func (a *Agent) Run(userInput string) (string, AgentStats, error) {
 	startTime := time.Now()
-	var totalPromptTokens int
-	var totalCompTokens int
+	var lastPromptTokens int
+	var lastCompTokens int
+	var lastChatDuration time.Duration
 
 	// 1. Add user message to history
 	a.History = append(a.History, llm.ChatMessage{Role: "user", Content: userInput})
@@ -82,7 +83,9 @@ func (a *Agent) Run(userInput string) (string, AgentStats, error) {
 	for i := 0; i < maxIterations; i++ {
 		req := a.prepareRequest()
 
+		chatStartTime := time.Now()
 		resp, err := a.Client.Chat(req)
+		lastChatDuration = time.Since(chatStartTime)
 
 		if err != nil {
 			return "", AgentStats{}, fmt.Errorf("LLM error: %w", err)
@@ -92,9 +95,9 @@ func (a *Agent) Run(userInput string) (string, AgentStats, error) {
 			return "No response from model.", AgentStats{}, nil
 		}
 
-		// Track tokens
-		totalPromptTokens += resp.Usage.PromptTokens
-		totalCompTokens += resp.Usage.CompletionTokens
+		// Track tokens for the last call
+		lastPromptTokens = resp.Usage.PromptTokens
+		lastCompTokens = resp.Usage.CompletionTokens
 
 		assistantMsg := resp.Choices[0].Message
 		a.History = append(a.History, assistantMsg)
@@ -111,12 +114,17 @@ func (a *Agent) Run(userInput string) (string, AgentStats, error) {
 
 		// No more tool calls — this is the final answer
 		duration := time.Since(startTime)
+		var tokensPerSec float64
+		if lastChatDuration > 0 && lastCompTokens > 0 {
+			tokensPerSec = float64(lastCompTokens) / lastChatDuration.Seconds()
+		}
+
 		stats := AgentStats{
 			Duration:     duration,
-			PromptTokens: totalPromptTokens,
-			CompTokens:   totalCompTokens,
-			TotalTokens:  totalPromptTokens + totalCompTokens,
-			TokensPerSec: float64(totalCompTokens) / duration.Seconds(),
+			PromptTokens: lastPromptTokens,
+			CompTokens:   lastCompTokens,
+			TotalTokens:  lastPromptTokens + lastCompTokens,
+			TokensPerSec: tokensPerSec,
 		}
 		return assistantMsg.Content, stats, nil
 	}

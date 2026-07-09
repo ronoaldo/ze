@@ -159,9 +159,10 @@ func (t *TUI) ReportStats(stats agent.AgentStats) {
 		width = 40
 	}
 	
-	line := fmt.Sprintf("Stats: %v | Tokens: %d | Speed: %.2f t/s", 
+	line := fmt.Sprintf("Stats: %v | P: %d C: %d | Speed: %.2f t/s", 
 		stats.Duration.Round(time.Millisecond), 
-		stats.TotalTokens, 
+		stats.PromptTokens,
+		stats.CompTokens,
 		stats.TokensPerSec,
 	)
 	
