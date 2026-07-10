@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	_ "embed"
 	"flag"
 	"fmt"
 	"os"
@@ -14,6 +15,9 @@ import (
 	"github.com/ronoaldo/ze/internal/tools"
 	"github.com/ronoaldo/ze/internal/tui"
 )
+
+//go:embed logo.txt
+var logoEmbed string
 
 // Default configuration values
 const (
@@ -133,8 +137,8 @@ func main() {
 	// Register commands
 	commands.RegisterCommands()
 
-	// Show model info
-	fmt.Fprintf(os.Stderr, "[ Model: %s | Server: %s | Timeout: %v | Verbose: %v | API Verbose: %v ]\n", modelName, cfg.URL, cfg.Timeout, cfg.Verbose, cfg.VerboseAPICalls)
+	// Show model info using Neofetch-style banner
+	printNeofetch(modelName, cfg)
 
 	// Run TUI — wraps the agent's Run method
 	err = t.Run(func(msg string) (string, agent.AgentStats, error) {
@@ -166,6 +170,60 @@ func main() {
 		fmt.Fprintf(os.Stderr, "\nError: %v\n", err)
 		os.Exit(1)
 	}
+}
+
+// printNeofetch displays a neofetch-style banner with ASCII art from logo.txt and system info.
+func printNeofetch(modelName string, cfg *Config) {
+	info := []string{
+		fmt.Sprintf("Model:       %s", modelName),
+		fmt.Sprintf("Server:      %s", cfg.URL),
+		fmt.Sprintf("Timeout:     %s", cfg.Timeout),
+		fmt.Sprintf("Verbose:     %v", cfg.Verbose),
+		fmt.Sprintf("API Verbose: %v", cfg.VerboseAPICalls),
+	}
+
+	fmt.Fprintln(os.Stderr, "")
+	
+	// Clean up logo data: split into lines. We don't use TrimSpace on the whole block
+	// because it would destroy the intended indentation of the ASCII art.
+	logoLines := strings.Split(logoEmbed, "\n")
+
+	// Remove the last empty line if the file ends with a newline
+	if len(logoLines) > 0 && logoLines[len(logoLines)-1] == "" {
+		logoLines = logoLines[:len(logoLines)-1]
+	}
+	
+	// We iterate based on the maximum number of elements to ensure everything is printed
+	maxLines := len(logoLines)
+	if len(info) > maxLines {
+		maxLines = len(info)
+	}
+
+	for i := 0; i < maxLines; i++ {
+		// Logo line
+		if i < len(logoLines) {
+			line := logoLines[i]
+			// Minimal padding for alignment
+			fmt.Fprint(os.Stderr, line)
+			// Ensure there's enough separation between logo and info
+			if len(line) < 20 {
+				fmt.Fprint(os.Stderr, strings.Repeat(" ", 20-len(line)))
+			} else {
+				fmt.Fprint(os.Stderr, "  ")
+			}
+		} else {
+			// Padding if logo has fewer lines than info
+			fmt.Fprint(os.Stderr, "                      ")
+		}
+
+		// Info line
+		if i < len(info) {
+			fmt.Fprintln(os.Stderr, info[i])
+		} else {
+			fmt.Fprintln(os.Stderr, "")
+		}
+	}
+	fmt.Fprintln(os.Stderr, "")
 }
 
 // selectModel picks the best model from the server or falls back to hardware detection.
