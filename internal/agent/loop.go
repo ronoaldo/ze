@@ -170,11 +170,11 @@ func (a *Agent) handleToolCalls(toolCalls []llm.ToolCall) ([]llm.ChatMessage, er
 
 		result, err := tool.Execute(args)
 		if err != nil {
-			errResult := fmt.Sprintf("[Tool Error (%s): %v]", tc.Function.Name, err)
+			content := fmt.Sprintf("[Tool Error (%s): %v]\n\n%s", tc.Function.Name, err, result)
 			toolMessages = append(toolMessages, llm.ChatMessage{
 				Role:       "tool",
 				ToolCallID: tc.ID,
-				Content:    errResult,
+				Content:    content,
 			})
 		} else {
 			toolMessages = append(toolMessages, llm.ChatMessage{
