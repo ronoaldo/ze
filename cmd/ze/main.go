@@ -29,6 +29,7 @@ type Config struct {
 	Version         bool
 	Verbose         bool
 	VerboseAPICalls bool
+	MaxIteration    int
 }
 
 // ParseConfig parses command line arguments and environment variables.
@@ -54,7 +55,7 @@ func ParseConfig(args []string, env map[string]string) (*Config, error) {
 	vShortFlag := fs.Bool("v", false, "Show version (short)")
 	verboseFlag := fs.Bool("verbose", false, "Enable verbose tool output")
 	verboseAPICallsFlag := fs.Bool("verbose-api-calls", false, "Log raw API requests and responses")
-
+	maxIterFlag := fs.Int("max-iterations", 20, "Maximum number of agent iterations")
 	if err := fs.Parse(args); err != nil {
 		return nil, err
 	}
@@ -70,6 +71,7 @@ func ParseConfig(args []string, env map[string]string) (*Config, error) {
 		Version:         *versionFlag || *vShortFlag,
 		Verbose:         *verboseFlag,
 		VerboseAPICalls: *verboseAPICallsFlag,
+		MaxIteration:    *maxIterFlag,
 	}, nil
 }
 
@@ -117,7 +119,7 @@ func main() {
 	t := tui.New(cfg.Verbose)
 
 	// Create agent with full multi-step loop and reporter
-	zeAgent := agent.NewAgent(client, modelName, availableTools, cfg.Verbose)
+	zeAgent := agent.NewAgent(client, modelName, availableTools, cfg.Verbose, cfg.MaxIteration)
 	zeAgent.Reporter = t
 
 	// Register commands

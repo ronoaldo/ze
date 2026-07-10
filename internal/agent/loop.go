@@ -10,8 +10,6 @@ import (
 	"github.com/ronoaldo/ze/internal/tools"
 )
 
-const maxIterations = 20
-
 // AgentStats contains performance metrics for an agent run.
 type AgentStats struct {
 	Duration      time.Duration
@@ -31,16 +29,17 @@ type AgentReporter interface {
 
 // Agent represents the core programming agent.
 type Agent struct {
-	Client    llm.Client
-	Model     string // The selected model name
-	Tools     map[string]tools.Tool
-	ToolDefs  []llm.ToolDefinition
-	History   []llm.ChatMessage
-	Reporter  AgentReporter // Optional reporter for UI updates
-	Verbose   bool
+	Client       llm.Client
+	Model        string // The selected model name
+	Tools        map[string]tools.Tool
+	ToolDefs     []llm.ToolDefinition
+	History      []llm.ChatMessage
+	Reporter     AgentReporter // Optional reporter for UI updates
+	Verbose      bool
+	MaxIteration int
 }
 
-func NewAgent(client llm.Client, model string, availableTools []tools.Tool, verbose bool) *Agent {
+func NewAgent(client llm.Client, model string, availableTools []tools.Tool, verbose bool, maxIter int) *Agent {
 	toolMap := make(map[string]tools.Tool)
 	toolDefs := make([]llm.ToolDefinition, 0, len(availableTools))
 	for _, t := range availableTools {
@@ -59,13 +58,18 @@ func NewAgent(client llm.Client, model string, availableTools []tools.Tool, verb
 		})
 	}
 	
+	if maxIter <= 0 {
+		maxIter = 20
+	}
+
 	return &Agent{
-		Client:   client,
-		Model:    model,
-		Tools:    toolMap,
-		ToolDefs: toolDefs,
-		History:  []llm.ChatMessage{},
-		Verbose:  verbose,
+		Client:       client,
+		Model:        model,
+		Tools:        toolMap,
+		ToolDefs:     toolDefs,
+		History:      []llm.ChatMessage{},
+		Verbose:      verbose,
+		MaxIteration: maxIter,
 	}
 }
 
@@ -80,7 +84,7 @@ func (a *Agent) Run(userInput string) (string, AgentStats, error) {
 	a.History = append(a.History, llm.ChatMessage{Role: "user", Content: userInput})
 
 	// 2. Multi-step loop
-	for i := 0; i < maxIterations; i++ {
+	for i := 0; i < a.MaxIteration; i++ {
 		req := a.prepareRequest()
 
 		chatStartTime := time.Now()
@@ -129,7 +133,7 @@ func (a *Agent) Run(userInput string) (string, AgentStats, error) {
 		return assistantMsg.Content, stats, nil
 	}
 
-	return "", AgentStats{}, fmt.Errorf("reached max iterations (%d) without a final answer", maxIterations)
+	return "", AgentStats{}, fmt.Errorf("reached max iterations (%d) without a final answer", a.MaxIteration)
 }
 
 func (a *Agent) prepareRequest() *llm.ChatRequest {

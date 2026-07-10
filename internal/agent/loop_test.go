@@ -76,7 +76,7 @@ func newTestAgent(t *testing.T, mock *mockLLMClient, toolList []tools.Tool) *Age
 		}
 	}
 	
-	return NewAgent(mock, "gemma-4-9b", fixedTools, false)
+	return NewAgent(mock, "gemma-4-9b", fixedTools, false, 20)
 }
 
 func TestRun_NoToolCall_ReturnsDirectAnswer(t *testing.T) {
@@ -136,8 +136,8 @@ func TestRun_MaxIterations_WhenOnlyToolCalls(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected max iterations error")
 	}
-	if mock.callCount != maxIterations {
-		t.Errorf("expected %d LLM calls, got %d", maxIterations, mock.callCount)
+	if mock.callCount != 20 {
+		t.Errorf("expected 20 LLM calls, got %d", mock.callCount)
 	}
 }
 
