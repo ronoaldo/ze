@@ -113,6 +113,7 @@ func main() {
 		&tools.EditFileTool{},
 		&tools.GoTestTool{},
 		&tools.DiffTool{},
+		&tools.RemoveFileTool{},
 	}
 
 	// Create TUI

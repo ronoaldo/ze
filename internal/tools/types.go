@@ -20,8 +20,8 @@ type FileWriteArgs struct {
 	Content string `json:"content"`
 }
 
-type ListFilesArgs struct {
-	Path string `json:"path,omitempty"`
+type RemoveFileArgs struct {
+	Path string `json:"path"`
 }
 
 type GoDocArgs struct {
