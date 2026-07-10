@@ -15,6 +15,13 @@ import (
 	"github.com/ronoaldo/ze/internal/tui"
 )
 
+// Default configuration values
+const (
+	DefaultURL          = "http://localhost:8084"
+	DefaultTimeoutStr   = "5m"
+	DefaultMaxIteration = 50
+)
+
 // Version metadata injected by GoReleaser ldflags.
 var (
 	version = "dev"
@@ -37,13 +44,13 @@ type Config struct {
 func ParseConfig(args []string, env map[string]string) (*Config, error) {
 	fs := flag.NewFlagSet("ze", flag.ContinueOnError)
 
-	// Default values
-	defaultURL := "http://localhost:8084"
+	// Default values from ENV or Constants
+	defaultURL := DefaultURL
 	if val, ok := env["LLAMA_URL"]; ok && val != "" {
 		defaultURL = val
 	}
 
-	defaultTimeout := "5m"
+	defaultTimeout := DefaultTimeoutStr
 	if val, ok := env["LLAMA_TIMEOUT"]; ok && val != "" {
 		defaultTimeout = val
 	}
@@ -55,7 +62,7 @@ func ParseConfig(args []string, env map[string]string) (*Config, error) {
 	vShortFlag := fs.Bool("v", false, "Show version (short)")
 	verboseFlag := fs.Bool("verbose", false, "Enable verbose tool output")
 	verboseAPICallsFlag := fs.Bool("verbose-api-calls", false, "Log raw API requests and responses")
-	maxIterFlag := fs.Int("max-iterations", 20, "Maximum number of agent iterations")
+	maxIterFlag := fs.Int("max-iterations", DefaultMaxIteration, "Maximum number of agent iterations")
 	if err := fs.Parse(args); err != nil {
 		return nil, err
 	}

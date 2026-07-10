@@ -50,9 +50,20 @@ O agente utiliza ferramentas baseadas em JSON Schema para interagir com o sistem
 
 - `read_file`: Lê o conteúdo de um arquivo.
 - `write_file`: Escreve conteúdo em um arquivo (sobrescreve).
-- `edit_file`: Aplica edições parciais em arquivos usando substituição de strings.
+- `edit_file`: Aplica edições parciais em arquivos usando substituição de strings. REQUER CORRESPONDÊNCIA EXATA (caractere por caractere) de `oldString` para garantir sucesso. Requer atenção absoluta a espaços, tabs e quebras de linha.
 - `list_files`: Lista arquivos e diretórios.
 - `go_doc`: Recupera documentação de pacotes Go via `go doc`.
+
+### Protocolo de Edição de Arquivos (CRÍTICO)
+
+Ao utilizar `edit_file`, siga RIGOROSAMENTE estas regras:
+
+1. **CORRESPONDÊNCIA EXATA (Exact Match):** O `oldString` deve ser uma cópia bit-a-bit do conteúdo original, incluindo todos os espaços, tabs e quebras de linha. Mesmo um único caractere divergente causará falha.
+2. **UNICIDADE (Uniqueness):** Escolha um `oldString` longo o suficiente para ser único no arquivo. Evite palavras comuns ou linhas curtas que se repetem. Use o contexto ao redor para tornar o identificador unívoco.
+3. **ATOMICIDADE (Atomicity):** Realize edições pequenas e focadas. Não tente reescrever grandes blocos; quebre alterações complexas em vários `edit_file` menores e sequenciais.
+4. **ORDENAÇÃO (Ordering):** Ao enviar múltiplos edits no array `edits`, organize-os da primeira ocorrência para a última (ordem ascendente no arquivo) para evitar deslocamentos de índice.
+5. **PRESERVAÇÃO DE INDENTAÇÃO:** O `newString` deve manter a indentação exata do código original (utilize Tabs se o arquivo usar Tabs).
+6. **ESTRATÉGIA DE SELEÇÃO:** Antes de usar `edit_file`, chame obrigatoriamente `read_file` para obter a representação exata do texto. Se a alteração for muito extensa (>10 linhas), utilize `write_file` com o conteúdo completo para maior segurança.
 
 ## Arquitetura e Design
 
