@@ -67,18 +67,12 @@ func (t *EditFileTool) Execute(args map[string]interface{}) (string, error) {
 
 	summary := ""
 	if totalDeletions > 0 || totalAdditions > 0 {
-		summary = fmt.Sprintf(" [%s, %s]", formatBytes(totalDeletions), formatBytes(totalAdditions))
+		summary = fmt.Sprintf(" [+%d, -%d]", totalAdditions, totalDeletions)
 	}
 
 	return fmt.Sprintf("Successfully applied %d edits to %s%s", len(a.Edits), path, summary), nil
 }
 
-func formatBytes(n int) string {
-	if n > 0 {
-		return fmt.Sprintf("+%d bytes", n)
-	}
-	return fmt.Sprintf("-%d bytes", -n)
-}
 func (t *EditFileTool) JSONSchema() map[string]interface{} {
 	return map[string]interface{}{
 		"name":        "edit_file",

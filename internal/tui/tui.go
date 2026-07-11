@@ -116,7 +116,22 @@ func (t *TUI) summarizeArgs(toolName string, argsJSON string) string {
 func (t *TUI) summarizeResult(toolName string, result string) string {
 	switch toolName {
 	case "read_file", "edit_file":
+		if toolName == "edit_file" {
+			// Try to extract the summary from the end of the message, e.g., "[+10, -5]"
+			start := strings.LastIndex(result, "[")
+			end := strings.LastIndex(result, "]")
+			if start != -1 && end != -1 && end > start {
+				return result[start+1 : end]
+			}
+		}
 		return fmt.Sprintf("%d bytes", len(result))
+	case "write_file":
+		re := regexp.MustCompile(`wrote (\d+) bytes`)
+		match := re.FindStringSubmatch(result)
+		if len(match) > 1 {
+			return fmt.Sprintf("%s bytes", match[1])
+		}
+		return "Success"
 	case "list_files":
 		lines := strings.Count(result, "\n")
 		if result != "" && !strings.HasSuffix(result, "\n") {
@@ -126,7 +141,7 @@ func (t *TUI) summarizeResult(toolName string, result string) string {
 			return "0 items"
 		}
 		return fmt.Sprintf("%d items", lines)
-	case "write_file", "go_doc":
+	case "go_doc":
 		return "Success"
 	case "diff":
 		startMarker := "--- GIT STATS ---"

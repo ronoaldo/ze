@@ -35,7 +35,7 @@ func (t *GoTestTool) Execute(args map[string]interface{}) (string, error) {
 	}
 
 	if err != nil {
-		return fmt.Sprintf("%s\n\n--- DETAILED ERROR OUTPUT ---\n%s", outputStr, outputStr), fmt.Errorf("go test failed: %w", err)
+		return outputStr, fmt.Errorf("go test failed: %w", err)
 	}
 
 	return outputStr, nil

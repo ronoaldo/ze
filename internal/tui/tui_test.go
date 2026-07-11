@@ -105,9 +105,15 @@ func TestSummarizeResult(t *testing.T) {
 			expected: "0 items",
 		},
 		{
-			name:     "write_file success",
+			name:     "write_file bytes",
 			toolName: "write_file",
-			result:   "Successfully wrote to file.txt",
+			result:   "Successfully wrote 123 bytes to file.txt",
+			expected: "123 bytes",
+		},
+		{
+			name:     "write_file fallback",
+			toolName: "write_file",
+			result:   "Something went wrong",
 			expected: "Success",
 		},
 		{
@@ -117,10 +123,10 @@ func TestSummarizeResult(t *testing.T) {
 			expected: "Success",
 		},
 		{
-			name:     "default success",
-			toolName: "unknown",
-			result:   "anything",
-			expected: "Success",
+			name:     "edit_file summary extraction",
+			toolName: "edit_file",
+			result:   "Successfully applied 1 edits to file.txt [+10, -5]",
+			expected: "+10, -5",
 		},
 	}
 
@@ -188,15 +194,16 @@ func TestReportToolResult(t *testing.T) {
 		}
 	})
 
-	t.Run("Verbose Mode Success", func(t *testing.T) {
+	t.Run("Standard Mode EditFile", func(t *testing.T) {
 		buf := new(bytes.Buffer)
-		tui := New(true, false)
+		tui := New(false, false)
 		tui.w = buf
 
-		result := "full content"
-		tui.ReportToolResult("read_file", result, nil)
-		if !strings.Contains(buf.String(), result) {
-			t.Errorf("Expected full result in output, got %q", buf.String())
+		result := "Successfully applied 1 edits to file.txt [+10, -5]"
+		tui.ReportToolResult("edit_file", result, nil)
+		expected := " [\033[1m\033[32m+10, -5\033[0m]"
+		if !strings.Contains(buf.String(), expected) {
+			t.Errorf("Expected summary %q in output, got %q", expected, buf.String())
 		}
 	})
 }
