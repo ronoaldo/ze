@@ -29,7 +29,7 @@ func (t *EditFileTool) Execute(args map[string]interface{}) (string, error) {
 	}
 
 	currentContent := string(content)
-	oldLen := len(currentContent)
+	var totalDeletions, totalAdditions int
 
 	for i, edit := range a.Edits {
 		count := strings.Count(currentContent, edit.OldString)
@@ -40,29 +40,44 @@ func (t *EditFileTool) Execute(args map[string]interface{}) (string, error) {
 			return "", fmt.Errorf("edit %d: oldString found multiple times, use replaceAll: true", i)
 		}
 
+		numReplacements := count
+		if !edit.ReplaceAll {
+			numReplacements = 1
+		}
+
 		if edit.ReplaceAll {
 			currentContent = strings.ReplaceAll(currentContent, edit.OldString, edit.NewString)
 		} else {
 			currentContent = strings.Replace(currentContent, edit.OldString, edit.NewString, 1)
 		}
+
+		diff := (len(edit.OldString) - len(edit.NewString)) * numReplacements
+		if diff > 0 {
+			totalDeletions += diff
+		} else if diff < 0 {
+			totalAdditions += -diff
+		}
 	}
 
 	newContent := currentContent
-	newLen := len(newContent)
-	diffBytes := newLen - oldLen
-	diffStr := ""
-	if diffBytes >= 0 {
-		diffStr = fmt.Sprintf(" [+%d bytes]", diffBytes)
-	} else {
-		diffStr = fmt.Sprintf(" [%d bytes]", diffBytes)
-	}
-
 	err = os.WriteFile(path, []byte(newContent), 0644)
 	if err != nil {
 		return "", fmt.Errorf("failed to write file: %w", err)
 	}
 
-	return fmt.Sprintf("Successfully applied %d edits to %s%s", len(a.Edits), path, diffStr), nil
+	summary := ""
+	if totalDeletions > 0 || totalAdditions > 0 {
+		summary = fmt.Sprintf(" [%s, %s]", formatBytes(totalDeletions), formatBytes(totalAdditions))
+	}
+
+	return fmt.Sprintf("Successfully applied %d edits to %s%s", len(a.Edits), path, summary), nil
+}
+
+func formatBytes(n int) string {
+	if n > 0 {
+		return fmt.Sprintf("+%d bytes", n)
+	}
+	return fmt.Sprintf("-%d bytes", -n)
 }
 func (t *EditFileTool) JSONSchema() map[string]interface{} {
 	return map[string]interface{}{

@@ -22,12 +22,13 @@ func (t *FileWriteTool) Execute(args map[string]interface{}) (string, error) {
 		path = filepath.Join(t.BaseDir, path)
 	}
 
-	err := os.WriteFile(path, []byte(a.Content), 0644)
+	data := []byte(a.Content)
+	err := os.WriteFile(path, data, 0644)
 	if err != nil {
 		return "", fmt.Errorf("failed to write file: %w", err)
 	}
 
-	return fmt.Sprintf("Successfully wrote to %s", path), nil
+	return fmt.Sprintf("Successfully wrote %d bytes to %s", len(data), path), nil
 }
 func (t *FileWriteTool) JSONSchema() map[string]interface{} {
 	return map[string]interface{}{

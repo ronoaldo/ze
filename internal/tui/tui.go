@@ -178,6 +178,9 @@ func (t *TUI) ReportToolCallVerbose(toolName string, args string) {
 func (t *TUI) ReportToolResult(toolName string, result string, err error) {
 	if err != nil {
 		fmt.Fprintf(t.w, " | \x1b[1m\x1b[31m[ERROR] %v\x1b[0m\n", err)
+		if result != "" {
+			fmt.Fprintf(t.w, " | \x1b[2m%s\x1b[0m\n", result)
+		}
 		return
 	}
 
