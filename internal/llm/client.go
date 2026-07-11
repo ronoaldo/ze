@@ -80,10 +80,11 @@ type FunctionDef struct {
 
 // ChatMessage represents a single message in the chat history.
 type ChatMessage struct {
-	Role        string     `json:"role"`
-	Content     string     `json:"content,omitempty"`
-	ToolCalls   []ToolCall `json:"tool_calls,omitempty"`
-	ToolCallID  string     `json:"tool_call_id,omitempty"`
+	Role            string     `json:"role"`
+	Content         string     `json:"content,omitempty"`
+	ReasoningContent string    `json:"reasoning_content,omitempty"`
+	ToolCalls       []ToolCall `json:"tool_calls,omitempty"`
+	ToolCallID      string     `json:"tool_call_id,omitempty"`
 }
 
 // Usage represents token usage in a chat completion.

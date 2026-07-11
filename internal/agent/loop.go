@@ -24,6 +24,7 @@ type AgentReporter interface {
 	ReportToolCall(toolName string, args string)
 	ReportToolCallVerbose(toolName string, args string)
 	ReportToolResult(toolName string, result string, err error)
+	ReportReasoning(content string)
 }
 
 
@@ -37,9 +38,10 @@ type Agent struct {
 	Reporter     AgentReporter // Optional reporter for UI updates
 	Verbose      bool
 	MaxIteration int
+	ShowThinking bool
 }
 
-func NewAgent(client llm.Client, model string, availableTools []tools.Tool, verbose bool, maxIter int) *Agent {
+func NewAgent(client llm.Client, model string, availableTools []tools.Tool, verbose bool, maxIter int, showThinking bool) *Agent {
 	toolMap := make(map[string]tools.Tool)
 	toolDefs := make([]llm.ToolDefinition, 0, len(availableTools))
 	for _, t := range availableTools {
@@ -70,6 +72,7 @@ func NewAgent(client llm.Client, model string, availableTools []tools.Tool, verb
 		History:      []llm.ChatMessage{},
 		Verbose:      verbose,
 		MaxIteration: maxIter,
+		ShowThinking: showThinking,
 	}
 }
 
@@ -106,8 +109,16 @@ func (a *Agent) Run(userInput string) (string, AgentStats, error) {
 		assistantMsg := resp.Choices[0].Message
 		a.History = append(a.History, assistantMsg)
 
+		// Report reasoning if present
+		if assistantMsg.ReasoningContent != "" {
+			if a.Reporter != nil {
+				a.Reporter.ReportReasoning(assistantMsg.ReasoningContent)
+			}
+		}
+
 		// Check for tool calls
 		if len(assistantMsg.ToolCalls) > 0 {
+
 			toolResults, err := a.handleToolCalls(assistantMsg.ToolCalls)
 			if err != nil {
 				return "", AgentStats{}, err

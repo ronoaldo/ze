@@ -76,7 +76,7 @@ func newTestAgent(t *testing.T, mock *mockLLMClient, toolList []tools.Tool) *Age
 		}
 	}
 	
-	return NewAgent(mock, "gemma-4-9b", fixedTools, false, 20)
+	return NewAgent(mock, "gemma-4-9b", fixedTools, false, 20, false)
 }
 
 func TestRun_NoToolCall_ReturnsDirectAnswer(t *testing.T) {

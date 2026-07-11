@@ -24,10 +24,11 @@ type winsize struct {
 
 // TUI is the terminal user interface.
 type TUI struct {
-	w       io.Writer
-	r       io.Reader
-	reader  *bufio.Reader
-	verbose bool
+	w               io.Writer
+	r               io.Reader
+	reader          *bufio.Reader
+	verbose         bool
+	showThinking    bool
 }
 
 func isUTF8Locale() bool {
@@ -179,13 +180,22 @@ func (t *TUI) ReportStats(stats agent.AgentStats) {
 }
 
 // New creates a new TUI instance.
-func New(verbose bool) *TUI {
+func New(verbose bool, showThinking bool) *TUI {
 	EnsureUTF8Terminal()
 	return &TUI{
-		w:       os.Stdout,
-		r:       os.Stdin,
-		reader:  bufio.NewReader(os.Stdin),
-		verbose: verbose,
+		w:               os.Stdout,
+		r:               os.Stdin,
+		reader:          bufio.NewReader(os.Stdin),
+		verbose:         verbose,
+		showThinking:    showThinking,
+	}
+}
+
+// ReportReasoning prints a summary of the reasoning process and the full content if requested.
+func (t *TUI) ReportReasoning(content string) {
+	fmt.Fprintf(t.w, "\n\033[33m🧠 Pensou %d bytes de pura genialidade...\033[0m\n", len(content))
+	if t.showThinking {
+		fmt.Fprintf(t.w, "\033[2m%s\033[0m\n", content)
 	}
 }
 

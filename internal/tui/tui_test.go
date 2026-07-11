@@ -8,7 +8,7 @@ import (
 )
 
 func TestNew(t *testing.T) {
-	tui := New(false)
+	tui := New(false, false)
 	if tui == nil {
 		t.Fatal("New() returned nil")
 	}
@@ -16,14 +16,14 @@ func TestNew(t *testing.T) {
 		t.Error("Expected verbose to be false")
 	}
 
-	tuiVerbose := New(true)
+	tuiVerbose := New(true, false)
 	if !tuiVerbose.verbose {
 		t.Error("Expected verbose to be true")
 	}
 }
 
 func TestSummarizeArgs(t *testing.T) {
-	tui := New(false)
+	tui := New(false, false)
 	tests := []struct {
 		name     string
 		toolName string
@@ -79,7 +79,7 @@ func TestSummarizeArgs(t *testing.T) {
 }
 
 func TestSummarizeResult(t *testing.T) {
-	tui := New(false)
+	tui := New(false, false)
 	tests := []struct {
 		name     string
 		toolName string
@@ -137,7 +137,7 @@ func TestSummarizeResult(t *testing.T) {
 func TestReportToolCall(t *testing.T) {
 	t.Run("Standard Mode", func(t *testing.T) {
 		buf := new(bytes.Buffer)
-		tui := New(false)
+		tui := New(false, false)
 		tui.w = buf
 
 		tui.ReportToolCall("read_file", `{"path": "foo.go"}`)
@@ -149,7 +149,7 @@ func TestReportToolCall(t *testing.T) {
 
 	t.Run("Verbose Mode", func(t *testing.T) {
 		buf := new(bytes.Buffer)
-		tui := New(true)
+		tui := New(true, false)
 		tui.w = buf
 
 		args := `{"path": "foo.go"}`
@@ -167,7 +167,7 @@ func TestReportToolCall(t *testing.T) {
 func TestReportToolResult(t *testing.T) {
 	t.Run("Standard Mode Success", func(t *testing.T) {
 		buf := new(bytes.Buffer)
-		tui := New(false)
+		tui := New(false, false)
 		tui.w = buf
 
 		tui.ReportToolResult("read_file", "hello world", nil)
@@ -179,7 +179,7 @@ func TestReportToolResult(t *testing.T) {
 
 	t.Run("Standard Mode Error", func(t *testing.T) {
 		buf := new(bytes.Buffer)
-		tui := New(false)
+		tui := New(false, false)
 		tui.w = buf
 
 		tui.ReportToolResult("read_file", "", fmt.Errorf("file not found"))
@@ -190,7 +190,7 @@ func TestReportToolResult(t *testing.T) {
 
 	t.Run("Verbose Mode Success", func(t *testing.T) {
 		buf := new(bytes.Buffer)
-		tui := New(true)
+		tui := New(true, false)
 		tui.w = buf
 
 		result := "full content"
