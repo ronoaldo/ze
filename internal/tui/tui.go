@@ -6,12 +6,18 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"regexp"
 	"strings"
 	"syscall"
 	"time"
 	"unsafe"
 
 	"github.com/ronoaldo/ze/internal/agent"
+)
+
+var (
+	reInserts = regexp.MustCompile(`(\d+)\s+insertions?\(?\+?\)?`)
+	reDeletes = regexp.MustCompile(`(\d+)\s+deletions?\(?\-?\)?`)
 )
 
 // winsize represents the terminal window size.
@@ -43,7 +49,7 @@ func isUTF8Locale() bool {
 func (t *TUI) Run(handler func(msg string) (string, agent.AgentStats, error)) error {
 	for {
 		// Print prompt
-		fmt.Fprint(t.w, "\033[1m\033[36mze\033[0m \033[36m>\033[0m ")
+		fmt.Fprint(t.w, "\x1b[1m\x1b[36mze\x1b[0m \x1b[36m>\x1b[0m ")
 
 		// Read input
 		input, err := t.readLine()
@@ -122,6 +128,36 @@ func (t *TUI) summarizeResult(toolName string, result string) string {
 		return fmt.Sprintf("%d items", lines)
 	case "write_file", "go_doc":
 		return "Success"
+	case "diff":
+		startMarker := "--- GIT STATS ---"
+		endMarker := "--- GIT DIFF"
+		
+		startIdx := strings.Index(result, startMarker)
+		if startIdx == -1 {
+			return "Success (No stats)"
+		}
+		
+		endIdx := strings.Index(result[startIdx:], endMarker)
+		var statsPart string
+		if endIdx == -1 {
+			statsPart = result[startIdx:]
+		} else {
+			statsPart = result[startIdx : startIdx+endIdx]
+		}
+
+		insMatch := reInserts.FindStringSubmatch(statsPart)
+		delMatch := reDeletes.FindStringSubmatch(statsPart)
+
+		ins := "0"
+		if len(insMatch) > 1 {
+			ins = insMatch[1]
+		}
+		del := "0"
+		if len(delMatch) > 1 {
+			del = delMatch[1]
+		}
+
+		return fmt.Sprintf("+%s, -%s", ins, del)
 	default:
 		return "Success"
 	}
@@ -130,26 +166,26 @@ func (t *TUI) summarizeResult(toolName string, result string) string {
 // ReportToolCall prints a formatted tool call message.
 func (t *TUI) ReportToolCall(toolName string, args string) {
 	summary := t.summarizeArgs(toolName, args)
-	fmt.Fprintf(t.w, "* \033[1m\033[36m%s\033[0m('%s')", toolName, summary)
+	fmt.Fprintf(t.w, "* \x1b[1m\x1b[36m%s\x1b[0m('%s')", toolName, summary)
 }
 
 // ReportToolCallVerbose prints a full tool call message in dimmed color.
 func (t *TUI) ReportToolCallVerbose(toolName string, args string) {
-	fmt.Fprintf(t.w, "* \033[1m\033[36m[TOOL CALL] %s\033[0m: \033[2m%s\033[0m\n", toolName, args)
+	fmt.Fprintf(t.w, "* \x1b[1m\x1b[36m[TOOL CALL] %s\x1b[0m: \x1b[2m%s\x1b[0m\n", toolName, args)
 }
 
 // ReportToolResult prints a formatted tool result message.
 func (t *TUI) ReportToolResult(toolName string, result string, err error) {
 	if err != nil {
-		fmt.Fprintf(t.w, " | \033[1m\033[31m[ERROR] %v\033[0m\n", err)
+		fmt.Fprintf(t.w, " | \x1b[1m\x1b[31m[ERROR] %v\x1b[0m\n", err)
 		return
 	}
 
 	if t.verbose {
-		fmt.Fprintf(t.w, " | \033[1m\033[32m[TOOL RESULT] %s\033[0m: \033[2m%s\033[0m\n", toolName, result)
+		fmt.Fprintf(t.w, " | \x1b[1m\x1b[32m[TOOL RESULT] %s\x1b[0m: \x1b[2m%s\x1b[0m\n", toolName, result)
 	} else {
 		summary := t.summarizeResult(toolName, result)
-		fmt.Fprintf(t.w, " [\033[1m\033[32m%s\033[0m]\n", summary)
+		fmt.Fprintf(t.w, " [\x1b[1m\x1b[32m%s\x1b[0m]\n", summary)
 	}
 }
 
@@ -176,7 +212,7 @@ func (t *TUI) ReportStats(stats agent.AgentStats) {
 	}
 
 	// Print line with background color
-	fmt.Fprintf(t.w, "\033[44m%s\033[0m\n", line)
+	fmt.Fprintf(t.w, "\x1b[44m%s\x1b[0m\n", line)
 }
 
 // New creates a new TUI instance.
@@ -193,9 +229,9 @@ func New(verbose bool, showThinking bool) *TUI {
 
 // ReportReasoning prints a summary of the reasoning process and the full content if requested.
 func (t *TUI) ReportReasoning(content string) {
-	fmt.Fprintf(t.w, "\n\033[33m🧠 Pensou %d bytes de pura genialidade...\033[0m\n", len(content))
+	fmt.Fprintf(t.w, "\n\x1b[33m🧠 Pensou %d bytes de pura genialidade...\x1b[0m\n", len(content))
 	if t.showThinking {
-		fmt.Fprintf(t.w, "\033[2m%s\033[0m\n", content)
+		fmt.Fprintf(t.w, "\x1b[2m%s\x1b[0m\n", content)
 	}
 }
 

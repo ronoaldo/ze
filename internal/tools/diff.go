@@ -14,6 +14,17 @@ type DiffTool struct {
 }
 
 func (t *DiffTool) Name() string { return "diff" }
+
+func (t *DiffTool) executeGit(dir string, args ...string) (string, error) {
+	cmd := exec.Command("git", args...)
+	cmd.Dir = dir
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf("failed to run git %s: %w", strings.Join(args, " "), err)
+	}
+	return string(out), nil
+}
+
 func (t *DiffTool) Execute(args map[string]interface{}) (string, error) {
 	workDir := "."
 	if t.BaseDir != "" {
@@ -28,34 +39,43 @@ func (t *DiffTool) Execute(args map[string]interface{}) (string, error) {
 	var output strings.Builder
 
 	output.WriteString("--- GIT STATUS ---\n")
-	statusCmd := exec.Command("git", "status", "--short")
-	statusCmd.Dir = workDir
-	statusOut, err := statusCmd.CombinedOutput()
+	statusOut, err := t.executeGit(workDir, "status", "--short")
 	if err != nil {
-		return "", fmt.Errorf("failed to run git status: %w", err)
+		return "", err
 	}
-	output.Write(statusOut)
+	output.WriteString(statusOut)
+
+	output.WriteString("\n--- GIT STATS ---\n")
+	statOut, err := t.executeGit(workDir, "diff", "--stat")
+	if err != nil {
+		return "", err
+	}
+	output.WriteString(statOut)
 
 	output.WriteString("\n--- GIT DIFF (unstaged) ---\n")
-	diffCmd := exec.Command("git", "diff")
-	diffCmd.Dir = workDir
-	diffOut, err := diffCmd.CombinedOutput()
+	diffOut, err := t.executeGit(workDir, "diff")
 	if err != nil {
-		return "", fmt.Errorf("failed to run git diff: %w", err)
+		return "", err
 	}
-	output.Write(diffOut)
+	output.WriteString(diffOut)
 
 	output.WriteString("\n--- GIT DIFF (staged) ---\n")
-	stagedDiffCmd := exec.Command("git", "diff", "--cached")
-	stagedDiffCmd.Dir = workDir
-	stagedDiffOut, err := stagedDiffCmd.CombinedOutput()
+	stagedDiffOut, err := t.executeGit(workDir, "diff", "--cached")
 	if err != nil {
-		return "", fmt.Errorf("failed to run git diff --cached: %w", err)
+		return "", err
 	}
-	output.Write(stagedDiffOut)
+	output.WriteString(stagedDiffOut)
+
+	output.WriteString("\n--- GIT DIFF STATS (staged) ---\n")
+	stagedStatOut, err := t.executeGit(workDir, "diff", "--cached", "--stat")
+	if err != nil {
+		return "", err
+	}
+	output.WriteString(stagedStatOut)
 
 	return output.String(), nil
 }
+
 func (t *DiffTool) JSONSchema() map[string]interface{} {
 	return map[string]interface{}{
 		"name":        "diff",

@@ -29,6 +29,7 @@ func (t *EditFileTool) Execute(args map[string]interface{}) (string, error) {
 	}
 
 	currentContent := string(content)
+	oldLen := len(currentContent)
 
 	for i, edit := range a.Edits {
 		count := strings.Count(currentContent, edit.OldString)
@@ -46,12 +47,22 @@ func (t *EditFileTool) Execute(args map[string]interface{}) (string, error) {
 		}
 	}
 
-	err = os.WriteFile(path, []byte(currentContent), 0644)
+	newContent := currentContent
+	newLen := len(newContent)
+	diffBytes := newLen - oldLen
+	diffStr := ""
+	if diffBytes >= 0 {
+		diffStr = fmt.Sprintf(" [+%d bytes]", diffBytes)
+	} else {
+		diffStr = fmt.Sprintf(" [%d bytes]", diffBytes)
+	}
+
+	err = os.WriteFile(path, []byte(newContent), 0644)
 	if err != nil {
 		return "", fmt.Errorf("failed to write file: %w", err)
 	}
 
-	return fmt.Sprintf("Successfully applied %d edits to %s", len(a.Edits), path), nil
+	return fmt.Sprintf("Successfully applied %d edits to %s%s", len(a.Edits), path, diffStr), nil
 }
 func (t *EditFileTool) JSONSchema() map[string]interface{} {
 	return map[string]interface{}{
