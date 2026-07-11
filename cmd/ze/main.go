@@ -120,14 +120,17 @@ func main() {
 
 	// Register tools
 	availableTools := []tools.Tool{
+		// File system tools
 		&tools.FileReadTool{},
 		&tools.FileWriteTool{},
 		&tools.ListFilesTool{},
-		&tools.GoDocTool{},
+		&tools.RemoveFileTool{},
+
+		// Code manipulation and inspection tools
 		&tools.EditFileTool{},
+		&tools.GoDocTool{},
 		&tools.GoTestTool{},
 		&tools.DiffTool{},
-		&tools.RemoveFileTool{},
 	}
 
 	// Create TUI
