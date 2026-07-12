@@ -42,6 +42,7 @@ type Config struct {
 	VerboseAPICalls bool
 	MaxIteration    int
 	ShowThinking    bool
+	NoColor        bool
 }
 
 // ParseConfig parses command line arguments and environment variables.
@@ -69,6 +70,7 @@ func ParseConfig(args []string, env map[string]string) (*Config, error) {
 	verboseAPICallsFlag := fs.Bool("verbose-api-calls", false, "Log raw API requests and responses")
 	maxIterFlag := fs.Int("max-iterations", DefaultMaxIteration, "Maximum number of agent iterations")
 	showThinkingFlag := fs.Bool("show-thinking", false, "Show thinking process in the UI")
+	noColorFlag := fs.Bool("no-color", false, "Disable color output")
 	if err := fs.Parse(args); err != nil {
 		return nil, err
 	}
@@ -86,6 +88,7 @@ func ParseConfig(args []string, env map[string]string) (*Config, error) {
 		VerboseAPICalls: *verboseAPICallsFlag,
 		MaxIteration:    *maxIterFlag,
 		ShowThinking:    *showThinkingFlag,
+		NoColor:        *noColorFlag,
 	}, nil
 }
 
@@ -134,7 +137,7 @@ func main() {
 	}
 
 	// Create TUI
-	t := tui.New(cfg.Verbose, cfg.ShowThinking)
+	t := tui.New(cfg.Verbose, cfg.ShowThinking, cfg.NoColor)
 
 	// Create agent with full multi-step loop and reporter
 	zeAgent := agent.NewAgent(client, modelName, availableTools, cfg.Verbose, cfg.MaxIteration, cfg.ShowThinking)

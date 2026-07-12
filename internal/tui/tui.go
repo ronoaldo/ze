@@ -30,6 +30,41 @@ type winsize struct {
 	Ypixel uint16
 }
 
+// Palette defines the colors used in the TUI.
+type Palette struct {
+	Reset  string
+	Bold   string
+	Dim    string
+	Cyan   string
+	Green  string
+	Red    string
+	Yellow string
+}
+
+func DefaultPalette() Palette {
+	return Palette{
+		Reset:  "\x1b[0m",
+		Bold:   "\x1b[1m",
+		Dim:    "\x1b[2m",
+		Cyan:   "\x1b[36m",
+		Green:  "\x1b[32m",
+		Red:    "\x1b[31m",
+		Yellow: "\x1b[33m",
+	}
+}
+
+func NoColorPalette() Palette {
+	return Palette{
+		Reset:  "",
+		Bold:   "",
+		Dim:    "",
+		Cyan:   "",
+		Green:  "",
+		Red:    "",
+		Yellow: "",
+	}
+}
+
 // TUI is the terminal user interface.
 type TUI struct {
 	w               io.Writer
@@ -37,6 +72,7 @@ type TUI struct {
 	reader          *bufio.Reader
 	verbose         bool
 	showThinking    bool
+	palette         Palette
 	rng             *rand.Rand
 }
 
@@ -53,9 +89,9 @@ func (t *TUI) Run(handler func(msg string) (string, agent.AgentStats, error), is
 	for {
 		// Print prompt
 		if isMultiline != nil && isMultiline() {
-			fmt.Fprint(t.w, "   \x1b[36m>\x1b[0m ")
+			fmt.Fprintf(t.w, "   %s%s%s ", t.palette.Cyan, ">", t.palette.Reset)
 		} else {
-			fmt.Fprint(t.w, "\x1b[1m\x1b[36mze\x1b[0m \x1b[36m>\x1b[0m ")
+			fmt.Fprintf(t.w, "%s%s%s%s %s%s%s ", t.palette.Bold, t.palette.Cyan, "ze", t.palette.Reset, t.palette.Cyan, ">", t.palette.Reset)
 		}
 
 		// Read input
@@ -189,29 +225,29 @@ func (t *TUI) summarizeResult(toolName string, result string) string {
 // ReportToolCall prints a formatted tool call message.
 func (t *TUI) ReportToolCall(toolName string, args string) {
 	summary := t.summarizeArgs(toolName, args)
-	fmt.Fprintf(t.w, "* \x1b[1m\x1b[36m%s\x1b[0m('%s')", toolName, summary)
+	fmt.Fprintf(t.w, "* %s%s%s%s('%s')", t.palette.Bold, t.palette.Cyan, toolName, t.palette.Reset, summary)
 }
 
 // ReportToolCallVerbose prints a full tool call message in dimmed color.
 func (t *TUI) ReportToolCallVerbose(toolName string, args string) {
-	fmt.Fprintf(t.w, "* \x1b[1m\x1b[36m[TOOL CALL] %s\x1b[0m: \x1b[2m%s\x1b[0m\n", toolName, args)
+	fmt.Fprintf(t.w, "* %s%s[TOOL CALL] %s%s: %s%s%s\n", t.palette.Bold, t.palette.Cyan, toolName, t.palette.Reset, t.palette.Dim, args, t.palette.Reset)
 }
 
 // ReportToolResult prints a formatted tool result message.
 func (t *TUI) ReportToolResult(toolName string, result string, err error) {
 	if err != nil {
-		fmt.Fprintf(t.w, " | \x1b[1m\x1b[31m[ERROR] %v\x1b[0m\n", err)
+		fmt.Fprintf(t.w, " | %s%s[ERROR] %v%s\n", t.palette.Bold, t.palette.Red, err, t.palette.Reset)
 		if result != "" {
-			fmt.Fprintf(t.w, " | \x1b[2m%s\x1b[0m\n", result)
+			fmt.Fprintf(t.w, " | %s%s%s\n", t.palette.Dim, result, t.palette.Reset)
 		}
 		return
 	}
 
 	if t.verbose {
-		fmt.Fprintf(t.w, " | \x1b[1m\x1b[32m[TOOL RESULT] %s\x1b[0m: \x1b[2m%s\x1b[0m\n", toolName, result)
+		fmt.Fprintf(t.w, " | %s%s[TOOL RESULT] %s%s: %s%s%s\n", t.palette.Bold, t.palette.Green, toolName, t.palette.Reset, t.palette.Dim, result, t.palette.Reset)
 	} else {
 		summary := t.summarizeResult(toolName, result)
-		fmt.Fprintf(t.w, " [\x1b[1m\x1b[32m%s\x1b[0m]\n", summary)
+		fmt.Fprintf(t.w, " [%s%s%s%s]\n", t.palette.Bold, t.palette.Green, summary, t.palette.Reset)
 	}
 }
 
@@ -225,18 +261,23 @@ func (t *TUI) ReportStats(stats agent.AgentStats) {
 	)
 	
 	// Print line with dimmed color (grayish/faded style)
-	fmt.Fprintf(t.w, "\x1b[2m%s\x1b[0m\n", line)
+	fmt.Fprintf(t.w, "%s%s%s\n", t.palette.Dim, line, t.palette.Reset)
 }
 
 // New creates a new TUI instance.
-func New(verbose bool, showThinking bool) *TUI {
+func New(verbose bool, showThinking bool, noColor bool) *TUI {
 	EnsureUTF8Terminal()
+	palette := DefaultPalette()
+	if noColor {
+		palette = NoColorPalette()
+	}
 	return &TUI{
 		w:               os.Stdout,
 		r:               os.Stdin,
 		reader:          bufio.NewReader(os.Stdin),
 		verbose:         verbose,
 		showThinking:    showThinking,
+		palette:         palette,
 		rng:             rand.New(rand.NewSource(time.Now().UnixNano())),
 	}
 }
@@ -263,9 +304,9 @@ func (t *TUI) ReportReasoning(content string, tokens int) {
 	}
 
 	term := terms[t.rng.Intn(len(terms))]
-	fmt.Fprintf(t.w, "* \x1b[33mPensou %d tokens de %s...\x1b[0m\n", tokens, term)
+	fmt.Fprintf(t.w, "* %sPensou %d tokens de %s...%s\n", t.palette.Yellow, tokens, term, t.palette.Reset)
 	if t.showThinking {
-		fmt.Fprintf(t.w, "\x1b[2m%s\x1b[0m\n", content)
+		fmt.Fprintf(t.w, "%s%s%s\n", t.palette.Dim, content, t.palette.Reset)
 	}
 }
 

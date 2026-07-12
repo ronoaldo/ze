@@ -10,8 +10,19 @@ detectado quando a linha começa com '/send' e termina com o ENTER.
 ## Parte 2 - Desativar cores por um flag ou parâmetro
 
 Criar uma nova flag que irá desativar a exibição de cores.
+Ao fazer esse refactor, vamos criar uma "paleta de cores" com variáveis
+para que possamos configurar melhor depois. Assim, podemos ter uma "paleta zero"
+que não aplica cor alguma e apenas imprime o texto.
 
-## Parte 1 - Modo "stdin"
+## Parte 3 - Melhorar o multiline input
+
+Atualmente não há uma distinção entre o usuário digitar enter, linha por linha,
+e o usuário copiar e colar. Ao colar, o que ocorre é que o terminal exibe o
+prompt de multilne "  >" várias vezes, em sequência. Temos que refatorar o input
+handler e tentar detectar esse boost de input e então implementar uma UI mais
+limpa no terminal.
+
+## Parte 4 Modo "stdin"
 
 Neste modo, o Zé irá detectar se está em um TTY interativo.
 Isso permite criar pequenos "scripts" para implementar alguns
