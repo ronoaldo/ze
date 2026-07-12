@@ -84,8 +84,8 @@ func TestInputHandler_MultilineActivation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
-	if resp != "Multiline mode enabled. Type your message and end with '/send' to send." {
-		t.Errorf("unexpected activation message: %q", resp)
+	if resp != "" {
+		t.Errorf("expected empty response, got %q", resp)
 	}
 	if !h.isMultiline {
 		t.Error("expected isMultiline to be true")

@@ -24,7 +24,7 @@ type AgentReporter interface {
 	ReportToolCall(toolName string, args string)
 	ReportToolCallVerbose(toolName string, args string)
 	ReportToolResult(toolName string, result string, err error)
-	ReportReasoning(content string)
+	ReportReasoning(content string, tokens int)
 }
 
 
@@ -112,7 +112,8 @@ func (a *Agent) Run(userInput string) (string, AgentStats, error) {
 		// Report reasoning if present
 		if assistantMsg.ReasoningContent != "" {
 			if a.Reporter != nil {
-				a.Reporter.ReportReasoning(assistantMsg.ReasoningContent)
+				estimatedTokens := len(assistantMsg.ReasoningContent) / 4
+				a.Reporter.ReportReasoning(assistantMsg.ReasoningContent, estimatedTokens)
 			}
 		}
 

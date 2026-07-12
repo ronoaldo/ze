@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math/rand"
 	"os"
 	"regexp"
 	"strings"
@@ -36,6 +37,7 @@ type TUI struct {
 	reader          *bufio.Reader
 	verbose         bool
 	showThinking    bool
+	rng             *rand.Rand
 }
 
 func isUTF8Locale() bool {
@@ -215,11 +217,6 @@ func (t *TUI) ReportToolResult(toolName string, result string, err error) {
 
 // ReportStats displays performance statistics with a visual delimiter.
 func (t *TUI) ReportStats(stats agent.AgentStats) {
-	width := t.getTerminalWidth()
-	if width < 20 {
-		width = 40
-	}
-	
 	line := fmt.Sprintf("Stats: %v | P: %d C: %d | Speed: %.2f t/s", 
 		stats.Duration.Round(time.Millisecond), 
 		stats.PromptTokens,
@@ -227,16 +224,8 @@ func (t *TUI) ReportStats(stats agent.AgentStats) {
 		stats.TokensPerSec,
 	)
 	
-	// Pad the line with spaces to reach 'width'
-	padding := width - len(line)
-	if padding > 0 {
-		line += strings.Repeat(" ", padding)
-	} else if padding < 0 {
-		line = line[:width]
-	}
-
-	// Print line with background color
-	fmt.Fprintf(t.w, "\x1b[44m%s\x1b[0m\n", line)
+	// Print line with dimmed color (grayish/faded style)
+	fmt.Fprintf(t.w, "\x1b[2m%s\x1b[0m\n", line)
 }
 
 // New creates a new TUI instance.
@@ -248,12 +237,33 @@ func New(verbose bool, showThinking bool) *TUI {
 		reader:          bufio.NewReader(os.Stdin),
 		verbose:         verbose,
 		showThinking:    showThinking,
+		rng:             rand.New(rand.NewSource(time.Now().UnixNano())),
 	}
 }
 
 // ReportReasoning prints a summary of the reasoning process and the full content if requested.
-func (t *TUI) ReportReasoning(content string) {
-	fmt.Fprintf(t.w, "\n\x1b[33m🧠 Pensou %d bytes de pura genialidade...\x1b[0m\n", len(content))
+func (t *TUI) ReportReasoning(content string, tokens int) {
+	terms := []string{
+		"pura alucinação",
+		"um surto de lógica",
+		"um delírio de silício",
+		"um sonho de robô",
+		"uma epifania de bits",
+		"um erro de sistema elegante",
+		"uma conexão de Wi-Fi espiritual",
+		"um sussurro de processador",
+		"um caos de algoritmos",
+		"uma sinapse de eletricidade",
+		"um salto no escuro digital",
+		"um insight de calculadora",
+		"uma magia de código mal escrito",
+		"um fluxo de dados caótico",
+		"um enigma de bytes",
+		"uma genialidade de baixo nível",
+	}
+
+	term := terms[t.rng.Intn(len(terms))]
+	fmt.Fprintf(t.w, "* \x1b[33mPensou %d tokens de %s...\x1b[0m\n", tokens, term)
 	if t.showThinking {
 		fmt.Fprintf(t.w, "\x1b[2m%s\x1b[0m\n", content)
 	}

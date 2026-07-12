@@ -51,7 +51,7 @@ func RegisterCommands() {
 		Name:        "/multiline",
 		Description: "Enable multiline input mode",
 		Execute: func(args []string) (string, error) {
-			return "Multiline mode enabled. Type your message and end with '/send' to send.", nil
+			return "", nil
 		},
 	})
 	Register(Command{
