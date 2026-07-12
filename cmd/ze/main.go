@@ -143,31 +143,25 @@ func main() {
 	// Register commands
 	commands.RegisterCommands()
 
+	// Create Input Handler
+	inputHandler := tui.NewInputHandler(
+		commands.ExecuteCommand,
+		func(input string) (string, agent.AgentStats, error) {
+			res, stats, llmErr := zeAgent.Run(input)
+			if llmErr != nil {
+				return fmt.Sprintf("Error: %v", llmErr), stats, nil
+			}
+			return res, stats, nil
+		},
+	)
+
 	// Show model info using Neofetch-style banner
 	printNeofetch(modelName, cfg)
 
 	// Run TUI — wraps the agent's Run method
 	err = t.Run(func(msg string) (string, agent.AgentStats, error) {
-		resp, cmdErr := commands.ExecuteCommand(msg)
-		if cmdErr == nil {
-			return resp, agent.AgentStats{}, nil
-		}
-		if errors.Is(cmdErr, commands.ErrQuit) {
-			return "", agent.AgentStats{}, cmdErr
-		}
-
-		// If it's a command that failed (e.g. unknown command), return as response
-		if strings.HasPrefix(msg, "/") {
-			return fmt.Sprintf("Error: %v", cmdErr), agent.AgentStats{}, nil
-		}
-
-		// Otherwise, it's a user message for the agent
-		res, stats, llmErr := zeAgent.Run(msg)
-		if llmErr != nil {
-			return fmt.Sprintf("Error: %v", llmErr), stats, nil
-		}
-		return res, stats, nil
-	})
+		return inputHandler.Process(msg)
+	}, inputHandler.IsMultiline)
 
 	if err != nil {
 		if errors.Is(err, commands.ErrQuit) {

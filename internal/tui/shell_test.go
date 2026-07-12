@@ -25,6 +25,9 @@ func TestRun_ShellBehavior_CookedMode(t *testing.T) {
 	errStop := errors.New("stop loop")
 	handlerCalled := false
 	handler := func(msg string) (string, agent.AgentStats, error) {
+		if msg == "" {
+			return "", agent.AgentStats{}, ErrSkipLine
+		}
 		handlerCalled = true
 		if msg != "hi" {
 			t.Errorf("Expected 'hi', got: %q", msg)
@@ -32,7 +35,7 @@ func TestRun_ShellBehavior_CookedMode(t *testing.T) {
 		return "", agent.AgentStats{}, errStop
 	}
 
-	_ = tui.Run(handler)
+	_ = tui.Run(handler, func() bool { return false })
 	
 	if !handlerCalled {
 		t.Fatal("Handler was never called")
@@ -59,7 +62,7 @@ func TestRun_ShellBehavior_StandardInput(t *testing.T) {
 		return "", agent.AgentStats{}, errStop
 	}
 
-	_ = tui.Run(handler)
+	_ = tui.Run(handler, func() bool { return false })
 	
 	if !handlerCalled {
 		t.Fatal("Handler was never called")

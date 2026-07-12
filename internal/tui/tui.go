@@ -3,6 +3,7 @@ package tui
 import (
 	"bufio"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -46,10 +47,14 @@ func isUTF8Locale() bool {
 }
 
 // Run starts the TUI event loop.
-func (t *TUI) Run(handler func(msg string) (string, agent.AgentStats, error)) error {
+func (t *TUI) Run(handler func(msg string) (string, agent.AgentStats, error), isMultiline func() bool) error {
 	for {
 		// Print prompt
-		fmt.Fprint(t.w, "\x1b[1m\x1b[36mze\x1b[0m \x1b[36m>\x1b[0m ")
+		if isMultiline != nil && isMultiline() {
+			fmt.Fprint(t.w, "   \x1b[36m>\x1b[0m ")
+		} else {
+			fmt.Fprint(t.w, "\x1b[1m\x1b[36mze\x1b[0m \x1b[36m>\x1b[0m ")
+		}
 
 		// Read input
 		input, err := t.readLine()
@@ -57,21 +62,22 @@ func (t *TUI) Run(handler func(msg string) (string, agent.AgentStats, error)) er
 			return err
 		}
 
-		input = strings.TrimSpace(input)
-		if input == "" {
-			continue
-		}
-
 		// Call handler (LLM)
 		response, stats, err := handler(input)
 		if err != nil {
+			if errors.Is(err, ErrSkipLine) {
+				continue
+			}
 			return err
 		}
 
 		// Display response
 		if response != "" {
 			fmt.Fprintf(t.w, "\n%s\n\n", response)
-			t.ReportStats(stats)
+			// Only report stats if they are not empty
+			if stats.TotalTokens > 0 || stats.Duration > 0 {
+				t.ReportStats(stats)
+			}
 		}
 	}
 }
