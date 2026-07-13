@@ -22,13 +22,13 @@ func TestDiffTool(t *testing.T) {
 		runGit("config", "user.name", "Test User")
 
 		tool := &DiffTool{BaseDir: tmpDir}
-		output, err := tool.Execute(nil)
+		res, err := tool.Execute(nil)
 		if err != nil {
 			t.Fatalf("DiffTool execution failed: %v", err)
 		}
 		expected := "git_diff('.')"
-		if !strings.Contains(output, expected) {
-			t.Errorf("expected to contain %q, got %q", expected, output)
+		if !strings.Contains(res.FullResult, expected) {
+			t.Errorf("expected to contain %q, got %q", expected, res.FullResult)
 		}
 	})
 
@@ -63,20 +63,15 @@ func TestDiffTool(t *testing.T) {
 		}
 
 		toolSub := &DiffTool{BaseDir: tmpSubDir}
-		output, err := toolSub.Execute(nil)
+		res, err := toolSub.Execute(nil)
 		if err != nil {
 			t.Fatalf("DiffTool execution failed: %v", err)
 		}
 
-		if !strings.Contains(output, "git_diff('.')") {
-			t.Errorf("missing git_diff prefix: %q", output)
+		if !strings.Contains(res.FullResult, "git_diff('.') [+1/-1, 1 new file]") {
+			t.Errorf("expected summary to contain \"git_diff('.') [+1/-1, 1 new file]\", got %q", res.FullResult)
 		}
-		if !strings.Contains(output, "[+1/-1]") {
-			t.Errorf("missing unstaged diff: %q", output)
-		}
-		if !strings.Contains(output, "1 new file") {
-			t.Errorf("missing untracked file count: %q", output)
-		}
+
 	})
 
 	t.Run("StagedOnly", func(t *testing.T) {
@@ -105,16 +100,13 @@ func TestDiffTool(t *testing.T) {
 		runGitSub("add", fileName)
 
 		toolSub := &DiffTool{BaseDir: tmpSubDir}
-		output, err := toolSub.Execute(nil)
+		res, err := toolSub.Execute(nil)
 		if err != nil {
 			t.Fatalf("DiffTool execution failed: %v", err)
 		}
 
-		if !strings.Contains(output, "git_diff('.')") {
-			t.Errorf("missing git_diff prefix: %q", output)
-		}
-		if !strings.Contains(output, "[+1/-1 staged]") {
-			t.Errorf("missing staged diff: %q", output)
+		if !strings.Contains(res.FullResult, "git_diff('.') [+1/-1 staged]") {
+			t.Errorf("expected summary to contain \"git_diff('.') [+1/-1 staged]\", got %q", res.FullResult)
 		}
 	})
 
@@ -155,22 +147,14 @@ func TestDiffTool(t *testing.T) {
 		}
 
 		toolSub := &DiffTool{BaseDir: tmpSubDir}
-		output, err := toolSub.Execute(nil)
+		res, err := toolSub.Execute(nil)
 		if err != nil {
 			t.Fatalf("DiffTool execution failed: %v", err)
 		}
 
-		if !strings.Contains(output, "git_diff('.')") {
-			t.Errorf("missing git_diff prefix: %q", output)
+		if !strings.Contains(res.FullResult, "git_diff('.') [+1/-1, +1/-1 staged, 1 new file]") {
+			t.Errorf("expected summary to contain \"git_diff('.') [+1/-1, +1/-1 staged, 1 new file]\", got %q", res.FullResult)
 		}
-		if !strings.Contains(output, "[+1/-1]") {
-			t.Errorf("missing unstaged diff: %q", output)
-		}
-		if !strings.Contains(output, "[+1/-1 staged]") {
-			t.Errorf("missing staged diff: %q", output)
-		}
-		if !strings.Contains(output, "1 new file") {
-			t.Errorf("missing untracked file count: %q", output)
-		}
+
 	})
 }

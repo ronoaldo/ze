@@ -48,13 +48,13 @@ func Hello() string {
 		"package": "./mypkg",
 	}
 
-	output, err := tool.Execute(args)
+	res, err := tool.Execute(args)
 	if err != nil {
 		t.Fatalf("GoDocTool execution failed: %v", err)
 	}
 
-	if !strings.Contains(output, "Hello") {
-		t.Errorf("GoDocTool output should contain 'Hello', got: %s", output)
+	if !strings.Contains(res.FullResult, "Hello") {
+		t.Errorf("GoDocTool output should contain 'Hello', got: %s", res.FullResult)
 	}
 }
 
@@ -110,14 +110,19 @@ func TestFail(t *testing.T) {
 	args := map[string]interface{}{
 		"path": "./...",
 	}
-	output, err := tool.Execute(args)
+	res, err := tool.Execute(args)
 
-	// It should return an error because TestFail fails.
-	if err == nil {
-		t.Error("Expected error from failed test, got nil")
+	// It should return an error from tool.Execute (if it fails) or err=nil with RequiresFullOutput: true
+	// In our implementation, GoTestTool returns err=nil even for test failures.
+	if err != nil {
+		t.Errorf("Expected nil error from tool.Execute (logic error is in res.RequiresFullOutput), got: %v", err)
 	}
 
-	if !strings.Contains(output, "intentional failure") {
-		t.Errorf("Expected failure message in output, got: %s", output)
+	if !res.RequiresFullOutput {
+		t.Error("Expected RequiresFullOutput to be true for failed tests")
+	}
+
+	if !strings.Contains(res.FullResult, "intentional failure") {
+		t.Errorf("Expected failure message in output, got: %s", res.FullResult)
 	}
 }

@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+
+	"github.com/ronoaldo/ze/internal/tools"
 )
 
 func TestNew(t *testing.T) {
@@ -78,108 +80,30 @@ func TestSummarizeArgs(t *testing.T) {
 	}
 }
 
-func TestSummarizeResult(t *testing.T) {
-	tui := New(false, false, false)
-	tests := []struct {
-		name     string
-		toolName string
-		result   string
-		expected string
-	}{
-		{
-			name:     "read_file bytes",
-			toolName: "read_file",
-			result:   "some content",
-			expected: "12 bytes",
-		},
-		{
-			name:     "list_files items",
-			toolName: "list_files",
-			result:   "- file1.txt\n- file2.txt\n",
-			expected: "2 items",
-		},
-		{
-			name:     "list_files empty",
-			toolName: "list_files",
-			result:   "",
-			expected: "0 items",
-		},
-		{
-			name:     "write_file bytes",
-			toolName: "write_file",
-			result:   "Successfully wrote 123 bytes to file.txt",
-			expected: "123 bytes",
-		},
-		{
-			name:     "write_file fallback",
-			toolName: "write_file",
-			result:   "Something went wrong",
-			expected: "Success",
-		},
-		{
-			name:     "go_doc success",
-			toolName: "go_doc",
-			result:   "package fmt...",
-			expected: "Success",
-		},
-		{
-			name:     "edit_file summary extraction",
-			toolName: "edit_file",
-			result:   "Successfully applied 1 edits to file.txt [+10, -5]",
-			expected: "+10, -5",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := tui.summarizeResult(tt.toolName, tt.result)
-			if got != tt.expected {
-				t.Errorf("summarizeResult() = %q, want %q", got, tt.expected)
-			}
-		})
-	}
-}
-
-func TestReportToolCall(t *testing.T) {
-	t.Run("Standard Mode", func(t *testing.T) {
-		buf := new(bytes.Buffer)
-		tui := New(false, false, false)
-		tui.w = buf
-
-		tui.ReportToolCall("read_file", `{"path": "foo.go"}`)
-		expected := "* \033[1m\033[36mread_file\033[0m('foo.go')"
-		if buf.String() != expected {
-			t.Errorf("Expected %q, got %q", expected, buf.String())
-		}
-	})
-
-	t.Run("Verbose Mode", func(t *testing.T) {
-		buf := new(bytes.Buffer)
-		tui := New(true, false, false)
-		tui.w = buf
-
-		args := `{"path": "foo.go"}`
-		tui.ReportToolCallVerbose("read_file", args)
-		// Note the ANSI escape codes. Using strings.Contains to be safer.
-		if !strings.Contains(buf.String(), "[TOOL CALL] read_file") {
-			t.Errorf("Expected tool call in output, got %q", buf.String())
-		}
-		if !strings.Contains(buf.String(), args) {
-			t.Errorf("Expected full args in output, got %q", buf.String())
-		}
-	})
-}
-
-func TestReportToolResult(t *testing.T) {
+func TestReportToolExecution(t *testing.T) {
 	t.Run("Standard Mode Success", func(t *testing.T) {
 		buf := new(bytes.Buffer)
 		tui := New(false, false, false)
 		tui.w = buf
 
-		tui.ReportToolResult("read_file", "hello world", nil)
-		expected := " [\033[1m\033[32m11 bytes\033[0m]"
-		if !strings.Contains(buf.String(), expected) {
-			t.Errorf("Expected summary %q in output, got %q", expected, buf.String())
+		res := tools.ToolResult{
+			Summary:   "[+1/-1]",
+			FullResult: "some content",
+		}
+		tui.ReportToolExecution("read_file", `{"path": "foo.go"}`, res, nil)
+		
+		// Expected: * [Bold][Cyan]read_file[Reset]('foo.go') [Green][+1/-1][Reset]
+		// Since we can't easily predict all ANSI codes perfectly if they change, 
+		// let's check for key components.
+		output := buf.String()
+		if !strings.Contains(output, "read_file") {
+			t.Errorf("Expected tool name in output, got %q", output)
+		}
+		if !strings.Contains(output, "foo.go") {
+			t.Errorf("Expected argument in output, got %q", output)
+		}
+		if !strings.Contains(output, "[+1/-1]") {
+			t.Errorf("Expected summary in output, got %q", output)
 		}
 	})
 
@@ -188,22 +112,25 @@ func TestReportToolResult(t *testing.T) {
 		tui := New(false, false, false)
 		tui.w = buf
 
-		tui.ReportToolResult("read_file", "", fmt.Errorf("file not found"))
+		tui.ReportToolExecution("read_file", `{"path": "foo.go"}`, tools.ToolResult{}, fmt.Errorf("file not found"))
 		if !strings.Contains(buf.String(), "[ERROR] file not found") {
 			t.Errorf("Expected error message in output, got %q", buf.String())
 		}
 	})
 
-	t.Run("Standard Mode EditFile", func(t *testing.T) {
+	t.Run("Verbose Mode", func(t *testing.T) {
 		buf := new(bytes.Buffer)
-		tui := New(false, false, false)
+		tui := New(true, false, false)
 		tui.w = buf
 
-		result := "Successfully applied 1 edits to file.txt [+10, -5]"
-		tui.ReportToolResult("edit_file", result, nil)
-		expected := " [\033[1m\033[32m+10, -5\033[0m]"
-		if !strings.Contains(buf.String(), expected) {
-			t.Errorf("Expected summary %q in output, got %q", expected, buf.String())
+		res := tools.ToolResult{
+			Summary:   "[+1/-1]",
+			FullResult: "some content",
+		}
+		tui.ReportToolExecution("read_file", `{"path": "foo.go"}`, res, nil)
+		
+		if !strings.Contains(buf.String(), "some content") {
+			t.Errorf("Expected full result in output, got %q", buf.String())
 		}
 	})
 }

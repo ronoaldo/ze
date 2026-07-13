@@ -35,7 +35,7 @@ func (t *DiffTool) executeGit(dir string, args ...string) (string, error) {
 	return string(out), nil
 }
 
-func (t *DiffTool) Execute(args map[string]interface{}) (string, error) {
+func (t *DiffTool) Execute(args map[string]interface{}) (ToolResult, error) {
 	workDir := "."
 	if t.BaseDir != "" {
 		workDir = t.BaseDir
@@ -43,30 +43,34 @@ func (t *DiffTool) Execute(args map[string]interface{}) (string, error) {
 
 	// First, check if it's a git repository
 	if _, err := os.Stat(filepath.Join(workDir, ".git")); os.IsNotExist(err) {
-		return "", fmt.Errorf("not a git repository")
+		return ToolResult{}, fmt.Errorf("not a git repository")
 	}
 
 	stats := t.getGitStats(workDir)
 
 	// Build Summary
-	var summary strings.Builder
-	summary.WriteString("SUMMARY: git_diff('.')")
+	var parts []string
 
 	if stats.UnstagedAdd+stats.UnstagedDel > 0 {
-		summary.WriteString(fmt.Sprintf(" [+%d/-%d]", stats.UnstagedAdd, stats.UnstagedDel))
+		parts = append(parts, fmt.Sprintf("+%d/-%d", stats.UnstagedAdd, stats.UnstagedDel))
 	}
 
 	if stats.StagedAdd+stats.StagedDel > 0 {
-		summary.WriteString(fmt.Sprintf(" [+%d/-%d staged]", stats.StagedAdd, stats.StagedDel))
+		parts = append(parts, fmt.Sprintf("+%d/-%d staged", stats.StagedAdd, stats.StagedDel))
 	}
 
 	if stats.UntrackedCount > 0 {
-		summary.WriteString(fmt.Sprintf(" %d new file", stats.UntrackedCount))
+		parts = append(parts, fmt.Sprintf("%d new file", stats.UntrackedCount))
+	}
+
+	summary := "git_diff('.')"
+	if len(parts) > 0 {
+		summary += " [" + strings.Join(parts, ", ") + "]"
 	}
 
 	// Build Full Output for the LLM
 	var fullOutput strings.Builder
-	fullOutput.WriteString(summary.String())
+	fullOutput.WriteString(summary)
 	fullOutput.WriteString("\n---\n")
 
 	fullOutput.WriteString("--- GIT STATUS ---\n")
@@ -87,7 +91,10 @@ func (t *DiffTool) Execute(args map[string]interface{}) (string, error) {
 		fullOutput.WriteString(stagedDiffOut)
 	}
 
-	return fullOutput.String(), nil
+	return ToolResult{
+		FullResult: fullOutput.String(),
+		Summary:    strings.TrimSpace(summary),
+	}, nil
 }
 
 func (t *DiffTool) getGitStats(dir string) GitDiffStats {

@@ -78,7 +78,7 @@ func TestEditFileTool(t *testing.T) {
 				if string(content) != tt.expected {
 					t.Errorf("expected %q, got %q", tt.expected, string(content))
 				}
-				if result == "" {
+				if result.FullResult == "" {
 					t.Errorf("expected success message, got empty string")
 				}
 			}

@@ -15,15 +15,15 @@ func TestReadFileTool(t *testing.T) {
 	}
 
 	tool := &FileReadTool{BaseDir: tmpDir}
-	result, err := tool.Execute(map[string]interface{}{
+	res, err := tool.Execute(map[string]interface{}{
 		"path": filepath.Base(filePath),
 	})
 
 	if err != nil {
 		t.Fatalf("ReadFileTool execution failed: %v", err)
 	}
-	if result != content {
-		t.Errorf("expected %q, got %q", content, result)
+	if res.FullResult != content {
+		t.Errorf("expected %q, got %q", content, res.FullResult)
 	}
 }
 

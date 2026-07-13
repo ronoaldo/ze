@@ -13,10 +13,10 @@ type EditFileTool struct {
 }
 
 func (t *EditFileTool) Name() string { return "edit_file" }
-func (t *EditFileTool) Execute(args map[string]interface{}) (string, error) {
+func (t *EditFileTool) Execute(args map[string]interface{}) (ToolResult, error) {
 	var a EditArgs
 	if err := mapToStruct(args, &a); err != nil {
-		return "", fmt.Errorf("invalid arguments: %w", err)
+		return ToolResult{}, fmt.Errorf("invalid arguments: %w", err)
 	}
 	path := a.Path
 	if t.BaseDir != "" {
@@ -25,7 +25,7 @@ func (t *EditFileTool) Execute(args map[string]interface{}) (string, error) {
 
 	content, err := os.ReadFile(path)
 	if err != nil {
-		return "", fmt.Errorf("failed to read file: %w", err)
+		return ToolResult{}, fmt.Errorf("failed to read file: %w", err)
 	}
 
 	currentContent := string(content)
@@ -34,10 +34,10 @@ func (t *EditFileTool) Execute(args map[string]interface{}) (string, error) {
 	for i, edit := range a.Edits {
 		count := strings.Count(currentContent, edit.OldString)
 		if count == 0 {
-			return "", fmt.Errorf("edit %d: oldString not found", i)
+			return ToolResult{}, fmt.Errorf("edit %d: oldString not found", i)
 		}
 		if count > 1 && !edit.ReplaceAll {
-			return "", fmt.Errorf("edit %d: oldString found multiple times, use replaceAll: true", i)
+			return ToolResult{}, fmt.Errorf("edit %d: oldString found multiple times, use replaceAll: true", i)
 		}
 
 		numReplacements := count
@@ -62,15 +62,20 @@ func (t *EditFileTool) Execute(args map[string]interface{}) (string, error) {
 	newContent := currentContent
 	err = os.WriteFile(path, []byte(newContent), 0644)
 	if err != nil {
-		return "", fmt.Errorf("failed to write file: %w", err)
+		return ToolResult{}, fmt.Errorf("failed to write file: %w", err)
 	}
 
 	summary := ""
 	if totalDeletions > 0 || totalAdditions > 0 {
-		summary = fmt.Sprintf(" [+%d, -%d]", totalAdditions, totalDeletions)
+		summary = fmt.Sprintf("[+%d, -%d]", totalAdditions, totalDeletions)
+	} else {
+		summary = "no changes"
 	}
 
-	return fmt.Sprintf("Successfully applied %d edits to %s%s", len(a.Edits), path, summary), nil
+	return ToolResult{
+		FullResult: fmt.Sprintf("Successfully applied %d edits to %s", len(a.Edits), path),
+		Summary:    summary,
+	}, nil
 }
 
 func (t *EditFileTool) JSONSchema() map[string]interface{} {

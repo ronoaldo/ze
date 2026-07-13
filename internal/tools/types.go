@@ -4,10 +4,17 @@ import (
 	"encoding/json"
 )
 
-// Tool defines the interface for all agent tools.
+// ToolResult encapsula a resposta detalhada para o LLM e a resposta resumida para o usuário.
+type ToolResult struct {
+	FullResult         string // O conteúdo completo (para o LLM)
+	Summary           string // O sumário curto (ex: "2 arquivos lidos", "Testes passados")
+	RequiresFullOutput bool   // Se true, a TUI deve exibir o FullResult mesmo fora do modo verboso (ex: erro de teste)
+}
+
+// Tool define a interface para todas as ferramentas do agente.
 type Tool interface {
 	Name() string
-	Execute(args map[string]interface{}) (string, error)
+	Execute(args map[string]interface{}) (ToolResult, error)
 	JSONSchema() map[string]interface{}
 }
 

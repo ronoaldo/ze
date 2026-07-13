@@ -12,10 +12,10 @@ type FileReadTool struct {
 }
 
 func (t *FileReadTool) Name() string { return "read_file" }
-func (t *FileReadTool) Execute(args map[string]interface{}) (string, error) {
+func (t *FileReadTool) Execute(args map[string]interface{}) (ToolResult, error) {
 	var a FileReadArgs
 	if err := mapToStruct(args, &a); err != nil {
-		return "", fmt.Errorf("invalid arguments: %w", err)
+		return ToolResult{}, fmt.Errorf("invalid arguments: %w", err)
 	}
 	path := a.Path
 	if t.BaseDir != "" {
@@ -24,10 +24,13 @@ func (t *FileReadTool) Execute(args map[string]interface{}) (string, error) {
 
 	content, err := os.ReadFile(path)
 	if err != nil {
-		return "", fmt.Errorf("failed to read file: %w", err)
+		return ToolResult{}, fmt.Errorf("failed to read file: %w", err)
 	}
 
-	return string(content), nil
+	return ToolResult{
+		FullResult: string(content),
+		Summary:    fmt.Sprintf("%d bytes", len(content)),
+	}, nil
 }
 func (t *FileReadTool) JSONSchema() map[string]interface{} {
 	return map[string]interface{}{

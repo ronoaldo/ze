@@ -40,11 +40,11 @@ func TestRemoveFileTool(t *testing.T) {
 		"path": fileName,
 	}
 
-	result, err := tool.Execute(args)
+	res, err := tool.Execute(args)
 	if err != nil {
 		t.Errorf("expected success, got error: %v", err)
 	}
-	if result == "" {
+	if res.FullResult == "" {
 		t.Error("expected result message, got empty string")
 	}
 

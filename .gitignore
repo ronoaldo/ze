@@ -16,3 +16,6 @@ checksums.txt
 # OS
 .DS_Store
 Thumbs.db
+
+# Project scratchpad
+/tmp

@@ -15,6 +15,7 @@ import (
 	"unsafe"
 
 	"github.com/ronoaldo/ze/internal/agent"
+	"github.com/ronoaldo/ze/internal/tools"
 )
 
 var (
@@ -80,8 +81,10 @@ func isUTF8Locale() bool {
 	lang := strings.ToUpper(os.Getenv("LANG"))
 	lcAll := strings.ToUpper(os.Getenv("LC_ALL"))
 	lcCtype := strings.ToUpper(os.Getenv("LC_CTYPE"))
-	return strings.Contains(lang, "UTF-8") || strings.Contains(lcAll, "UTF-8") || strings.Contains(lcCtype, "UTF-8") ||
-		strings.Contains(lang, "UTF8") || strings.Contains(lcAll, "UTF8") || strings.Contains(lcCtype, "UTF8") ||
+	return strings.Contains(lang, "UTF-8") || strings.Contains(lcAll, "UTF-8") ||
+		strings.Contains(lcCtype, "UTF-8") ||
+		strings.Contains(lang, "UTF8") || strings.Contains(lcAll, "UTF8") ||
+		strings.Contains(lcCtype, "UTF8") ||
 		strings.Contains(lang, "UTF8") || strings.Contains(lcAll, "UTF8")
 }
 
@@ -155,82 +158,34 @@ func (t *TUI) summarizeArgs(toolName string, argsJSON string) string {
 	return "{}"
 }
 
-// summarizeResult creates a human-readable summary of tool results.
-func (t *TUI) summarizeResult(toolName string, result string) string {
-	switch toolName {
-	case "read_file", "edit_file":
-		if toolName == "edit_file" {
-			// Try to extract the summary from the end of the message, e.g., "[+10, -5]"
-			start := strings.LastIndex(result, "[")
-			end := strings.LastIndex(result, "]")
-			if start != -1 && end != -1 && end > start {
-				return result[start+1 : end]
-			}
-		}
-		return fmt.Sprintf("%d bytes", len(result))
-	case "write_file":
-		re := regexp.MustCompile(`wrote (\d+) bytes`)
-		match := re.FindStringSubmatch(result)
-		if len(match) > 1 {
-			return fmt.Sprintf("%s bytes", match[1])
-		}
-		return "Success"
-	case "list_files":
-		lines := strings.Count(result, "\n")
-		if result != "" && !strings.HasSuffix(result, "\n") {
-			lines++
-		}
-		if result == "" {
-			return "0 items"
-		}
-		return fmt.Sprintf("%d items", lines)
-	case "go_doc":
-		return "Success"
-	case "diff":
-		if strings.HasPrefix(result, "SUMMARY: ") {
-			lines := strings.SplitN(result, "\n", 2)
-			summary := strings.TrimPrefix(lines[0], "SUMMARY: ")
-			summary = strings.TrimSpace(summary)
-			if summary == "" {
-				return "no changes"
-			}
-			// Remove redundant prefix if it's in the summary line
-			summary = strings.TrimPrefix(summary, "git_diff('.')")
-			summary = strings.TrimPrefix(summary, "git_diff('.'),")
-			return strings.TrimSpace(summary)
-		}
-		return "Success (No summary)"
-	default:
-		return "Success"
-	}
-}
 
-// ReportToolCall prints a formatted tool call message.
-func (t *TUI) ReportToolCall(toolName string, args string) {
+
+func (t *TUI) ReportToolExecution(toolName string, args string, res tools.ToolResult, err error) {
 	summary := t.summarizeArgs(toolName, args)
-	fmt.Fprintf(t.w, "* %s%s%s%s('%s')", t.palette.Bold, t.palette.Cyan, toolName, t.palette.Reset, summary)
-}
 
-// ReportToolCallVerbose prints a full tool call message in dimmed color.
-func (t *TUI) ReportToolCallVerbose(toolName string, args string) {
-	fmt.Fprintf(t.w, "* %s%s[TOOL CALL] %s%s: %s%s%s\n", t.palette.Bold, t.palette.Cyan, toolName, t.palette.Reset, t.palette.Dim, args, t.palette.Reset)
-}
-
-// ReportToolResult prints a formatted tool result message.
-func (t *TUI) ReportToolResult(toolName string, result string, err error) {
 	if err != nil {
-		fmt.Fprintf(t.w, " | %s%s[ERROR] %v%s\n", t.palette.Bold, t.palette.Red, err, t.palette.Reset)
-		if result != "" {
-			fmt.Fprintf(t.w, " | %s%s%s\n", t.palette.Dim, result, t.palette.Reset)
-		}
+		// Erro de Sistema
+		fmt.Fprintf(t.w, "* %s%s%s('%s') %s%s[ERROR] %v%s\n",
+			t.palette.Bold, t.palette.Cyan, toolName, t.palette.Reset, summary,
+			t.palette.Red, err.Error(), t.palette.Reset)
 		return
 	}
 
-	if t.verbose {
-		fmt.Fprintf(t.w, " | %s%s[TOOL RESULT] %s%s: %s%s%s\n", t.palette.Bold, t.palette.Green, toolName, t.palette.Reset, t.palette.Dim, result, t.palette.Reset)
+	// Build the summary part: tool_name('summary')
+	header := fmt.Sprintf("%s%s%s%s('%s')",
+		t.palette.Bold, t.palette.Cyan, toolName, t.palette.Reset, summary)
+
+	if res.Summary != "" {
+		fmt.Fprintf(t.w, "* %s %s%s%s\n", header, t.palette.Green, res.Summary, t.palette.Reset)
 	} else {
-		summary := t.summarizeResult(toolName, result)
-		fmt.Fprintf(t.w, " [%s%s%s%s]\n", t.palette.Bold, t.palette.Green, summary, t.palette.Reset)
+		fmt.Fprintf(t.w, "* %s\n", header)
+	}
+
+	// Linha de Detalhe (Opcional/Esmaecida)
+	if t.verbose || res.RequiresFullOutput {
+		if res.FullResult != "" {
+			fmt.Fprintf(t.w, "  %s%s%s\n", t.palette.Dim, res.FullResult, t.palette.Reset)
+		}
 	}
 }
 

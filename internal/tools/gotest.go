@@ -14,10 +14,10 @@ type GoTestArgs struct {
 type GoTestTool struct{}
 
 func (t *GoTestTool) Name() string { return "go_test" }
-func (t *GoTestTool) Execute(args map[string]interface{}) (string, error) {
+func (t *GoTestTool) Execute(args map[string]interface{}) (ToolResult, error) {
 	var a GoTestArgs
 	if err := mapToStruct(args, &a); err != nil {
-		return "", fmt.Errorf("invalid arguments: %w", err)
+		return ToolResult{}, fmt.Errorf("invalid arguments: %w", err)
 	}
 
 	path := a.Path
@@ -35,10 +35,18 @@ func (t *GoTestTool) Execute(args map[string]interface{}) (string, error) {
 	}
 
 	if err != nil {
-		return outputStr, fmt.Errorf("go test failed: %w", err)
+		return ToolResult{
+			FullResult:         outputStr,
+			Summary:            "tests failed",
+			RequiresFullOutput: true,
+		}, nil
 	}
 
-	return outputStr, nil
+	return ToolResult{
+		FullResult:         outputStr,
+		Summary:            "tests passed",
+		RequiresFullOutput: false,
+	}, nil
 }
 func (t *GoTestTool) JSONSchema() map[string]interface{} {
 	return map[string]interface{}{

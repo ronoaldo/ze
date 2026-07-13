@@ -3,6 +3,7 @@ package tools
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -15,16 +16,15 @@ func TestListFilesTool(t *testing.T) {
 	os.WriteFile(filepath.Join(tmpDir, "file2.log"), []byte("content"), 0644)
 
 	tool := &ListFilesTool{BaseDir: tmpDir}
-	output, err := tool.Execute(nil)
+	res, err := tool.Execute(nil)
 	if err != nil {
 		t.Fatalf("ListFilesTool execution failed: %v", err)
 	}
 
-	if !contains(output, "file1.txt") || !contains(output, "subdir/") || !contains(output, "file2.log") {
-		t.Errorf("ListFilesTool output missing expected entries: %s", output)
+	if !strings.Contains(res.FullResult, "file1.txt") || !strings.Contains(res.FullResult, "subdir/") || !strings.Contains(res.FullResult, "file2.log") {
+		t.Errorf("ListFilesTool output missing expected entries: %s", res.FullResult)
 	}
-}
-
-func contains(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || (len(substr) > 0 && (s[:len(substr)] == substr || contains(s[1:], substr))))
+	if res.Summary != "3 items" {
+		t.Errorf("expected summary '3 items', got %q", res.Summary)
+	}
 }

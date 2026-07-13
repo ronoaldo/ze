@@ -20,13 +20,15 @@ que não aplica cor alguma e apenas imprime o texto.
 
 ## Parte 3 - Melhorar a UI e UX do diff
 
+Status: Done
+
 Hoje o diff mostra algumas vezes [0, 0] como linhas novas/removidas, mas
 na realidade o diretório atual tem modificações. Isso é um bug.
 
 No arquivo ./samples/git-diff.md existem diretivas de como 
 implementar a exibição correta do sumário.
 
-## Parte 3 - Melhorar o multiline input
+## Parte 4 - Melhorar o multiline input
 
 Atualmente não há uma distinção entre o usuário digitar enter, linha por linha,
 e o usuário copiar e colar. Ao colar, o que ocorre é que o terminal exibe o
@@ -34,7 +36,7 @@ prompt de multilne "  >" várias vezes, em sequência. Temos que refatorar o inp
 handler e tentar detectar esse boost de input e então implementar uma UI mais
 limpa no terminal.
 
-## Parte 4 Modo "stdin"
+## Parte 5 - Modo "stdin"
 
 Neste modo, o Zé irá detectar se está em um TTY interativo.
 Isso permite criar pequenos "scripts" para implementar alguns

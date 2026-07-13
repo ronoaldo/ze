@@ -12,10 +12,10 @@ type FileWriteTool struct {
 }
 
 func (t *FileWriteTool) Name() string { return "write_file" }
-func (t *FileWriteTool) Execute(args map[string]interface{}) (string, error) {
+func (t *FileWriteTool) Execute(args map[string]interface{}) (ToolResult, error) {
 	var a FileWriteArgs
 	if err := mapToStruct(args, &a); err != nil {
-		return "", fmt.Errorf("invalid arguments: %w", err)
+		return ToolResult{}, fmt.Errorf("invalid arguments: %w", err)
 	}
 	path := a.Path
 	if t.BaseDir != "" {
@@ -25,10 +25,14 @@ func (t *FileWriteTool) Execute(args map[string]interface{}) (string, error) {
 	data := []byte(a.Content)
 	err := os.WriteFile(path, data, 0644)
 	if err != nil {
-		return "", fmt.Errorf("failed to write file: %w", err)
+		return ToolResult{}, fmt.Errorf("failed to write file: %w", err)
 	}
 
-	return fmt.Sprintf("Successfully wrote %d bytes to %s", len(data), path), nil
+	fullMsg := fmt.Sprintf("Successfully wrote %d bytes to %s", len(data), path)
+	return ToolResult{
+		FullResult: fullMsg,
+		Summary:    fmt.Sprintf("%d bytes", len(data)),
+	}, nil
 }
 func (t *FileWriteTool) JSONSchema() map[string]interface{} {
 	return map[string]interface{}{

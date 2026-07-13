@@ -2,6 +2,7 @@ package agent
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -21,9 +22,7 @@ type AgentStats struct {
 
 // AgentReporter defines an interface for reporting agent activity to the UI.
 type AgentReporter interface {
-	ReportToolCall(toolName string, args string)
-	ReportToolCallVerbose(toolName string, args string)
-	ReportToolResult(toolName string, result string, err error)
+	ReportToolExecution(toolName string, args string, res tools.ToolResult, err error)
 	ReportReasoning(content string, tokens int)
 }
 
@@ -169,39 +168,41 @@ func (a *Agent) handleToolCalls(toolCalls []llm.ToolCall) ([]llm.ChatMessage, er
 			return nil, fmt.Errorf("failed to unmarshal tool arguments: %w. Arguments: %s", err, string(tc.Function.Arguments))
 		}
 
-		if a.Reporter != nil {
-			a.Reporter.ReportToolCall(tc.Function.Name, string(tc.Function.Arguments))
-		}
-
 		tool, ok := a.Tools[tc.Function.Name]
 		if !ok {
-			errMsg := fmt.Sprintf("[Error: tool '%s' not found]", tc.Function.Name)
+			errMsg := fmt.Sprintf("tool '%s' not found", tc.Function.Name)
 			toolMessages = append(toolMessages, llm.ChatMessage{
 				Role:       "tool",
 				ToolCallID: tc.ID,
-				Content:    errMsg,
+				Content:    fmt.Sprintf("[Error: %s]", errMsg),
 			})
+			if a.Reporter != nil {
+				a.Reporter.ReportToolExecution(tc.Function.Name, string(tc.Function.Arguments), tools.ToolResult{}, errors.New(errMsg))
+			}
 			continue
 		}
 
 		result, err := tool.Execute(args)
 		if err != nil {
-			content := fmt.Sprintf("[Tool Error (%s): %v]\n\n%s", tc.Function.Name, err, result)
+			// System error
 			toolMessages = append(toolMessages, llm.ChatMessage{
 				Role:       "tool",
 				ToolCallID: tc.ID,
-				Content:    content,
+				Content:    fmt.Sprintf("[Tool Error (%s): %v]", tc.Function.Name, err),
 			})
+			if a.Reporter != nil {
+				a.Reporter.ReportToolExecution(tc.Function.Name, string(tc.Function.Arguments), tools.ToolResult{}, err)
+			}
 		} else {
+			// Success or Logic Error (err == nil, result.RequiresFullOutput might be true)
 			toolMessages = append(toolMessages, llm.ChatMessage{
 				Role:       "tool",
 				ToolCallID: tc.ID,
-				Content:    result,
+				Content:    result.FullResult,
 			})
-		}
-
-		if a.Reporter != nil {
-			a.Reporter.ReportToolResult(tc.Function.Name, result, err)
+			if a.Reporter != nil {
+				a.Reporter.ReportToolExecution(tc.Function.Name, string(tc.Function.Arguments), result, nil)
+			}
 		}
 	}
 

@@ -9,22 +9,25 @@ import (
 type GoDocTool struct{}
 
 func (t *GoDocTool) Name() string { return "go_doc" }
-func (t *GoDocTool) Execute(args map[string]interface{}) (string, error) {
+func (t *GoDocTool) Execute(args map[string]interface{}) (ToolResult, error) {
 	var a GoDocArgs
 	if err := mapToStruct(args, &a); err != nil {
-		return "", fmt.Errorf("invalid arguments: %w", err)
+		return ToolResult{}, fmt.Errorf("invalid arguments: %w", err)
 	}
 	if a.Package == "" {
-		return "", fmt.Errorf("missing 'package' argument")
+		return ToolResult{}, fmt.Errorf("missing 'package' argument")
 	}
 
 	cmd := exec.Command("go", "doc", a.Package)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return "", fmt.Errorf("failed to run go doc: %w (output: %s)", err, string(output))
+		return ToolResult{}, fmt.Errorf("failed to run go doc: %w (output: %s)", err, string(output))
 	}
 
-	return string(output), nil
+	return ToolResult{
+		FullResult: string(output),
+		Summary:    "Success",
+	}, nil
 }
 func (t *GoDocTool) JSONSchema() map[string]interface{} {
 	return map[string]interface{}{
