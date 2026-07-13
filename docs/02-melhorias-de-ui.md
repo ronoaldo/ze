@@ -14,6 +14,14 @@ Ao fazer esse refactor, vamos criar uma "paleta de cores" com variáveis
 para que possamos configurar melhor depois. Assim, podemos ter uma "paleta zero"
 que não aplica cor alguma e apenas imprime o texto.
 
+## Parte 3 - Melhorar a UI e UX do diff\_tool
+
+Hoje o diff mostra algumas vezes [0, 0] como linhas novas/removidas, mas
+na realidade, tem modificações.
+
+Analisando o exemplo de saída de alguns comandos do diff em ./sample/git-diff.md
+Implemente a saída correta como descrita no documento.
+
 ## Parte 3 - Melhorar o multiline input
 
 Atualmente não há uma distinção entre o usuário digitar enter, linha por linha,

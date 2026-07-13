@@ -21,7 +21,7 @@ var logoEmbed string
 
 // Default configuration values
 const (
-	DefaultURL          = "http://localhost:8084"
+	DefaultURL          = "http://localhost:1234"
 	DefaultTimeoutStr   = "5m"
 	DefaultMaxIteration = 50
 )
@@ -37,6 +37,7 @@ var (
 type Config struct {
 	URL             string
 	Timeout         time.Duration
+	ModelName       string
 	Version         bool
 	Verbose         bool
 	VerboseAPICalls bool
@@ -63,6 +64,7 @@ func ParseConfig(args []string, env map[string]string) (*Config, error) {
 
 	// Define flags
 	urlFlag := fs.String("url", defaultURL, "Llama server URL")
+	modelFlag := fs.String("model", "", "Model name to use")
 	timeoutFlag := fs.String("timeout", defaultTimeout, "Timeout duration (e.g. 60s, 5m)")
 	versionFlag := fs.Bool("version", false, "Show version")
 	vShortFlag := fs.Bool("v", false, "Show version (short)")
@@ -83,6 +85,7 @@ func ParseConfig(args []string, env map[string]string) (*Config, error) {
 	return &Config{
 		URL:             *urlFlag,
 		Timeout:         timeout,
+		ModelName:       *modelFlag,
 		Version:         *versionFlag || *vShortFlag,
 		Verbose:         *verboseFlag,
 		VerboseAPICalls: *verboseAPICallsFlag,
@@ -118,8 +121,8 @@ func main() {
 		availableModels = nil
 	}
 
-	// Select best model: loaded Gemma 4 > any loaded > hardware detection
-	modelName := selectModel(availableModels)
+	// Select model: user specified > loaded Gemma > any loaded
+	modelName := selectModel(availableModels, cfg.ModelName)
 
 	// Register tools
 	availableTools := []tools.Tool{
@@ -229,9 +232,13 @@ func printNeofetch(modelName string, cfg *Config) {
 	fmt.Fprintln(os.Stderr, "")
 }
 
-// selectModel picks the best model from the server or falls back to hardware detection.
-// Priority: loaded Gemma 4 > any loaded model > hardware-detect best.
-func selectModel(availableModels []llm.ModelInfo) string {
+// selectModel picks the best model from the server based on user input or loaded status.
+// Priority: user specified > loaded Gemma > any loaded.
+func selectModel(availableModels []llm.ModelInfo, userModel string) string {
+	if userModel != "" {
+		return userModel
+	}
+
 	// 1. Prefer a loaded Gemma 4 model
 	for _, m := range availableModels {
 		if m.Status == "loaded" && strings.Contains(strings.ToLower(m.ID), "gemma") {
@@ -247,9 +254,8 @@ func selectModel(availableModels []llm.ModelInfo) string {
 		}
 	}
 
-	// 3. Fall back to hardware detection (no model loaded on server)
-	res := llm.DetectHardware()
-	return llm.SelectBestModel(res)
+	// No user model and no loaded model: skip automatic detection.
+	return ""
 }
 
 // osEnvironAsMap converts os.Environ() to a map for testing/parsing.
