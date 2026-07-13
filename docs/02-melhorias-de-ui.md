@@ -2,12 +2,16 @@
 
 ## Parte 1 - Comando '/multiline'
 
+Status: Done
+
 Ao rodar este comando, o usuário visualiza uma mensagem dizendo
 que ele pode digitar/colar longas sequências de entrada e que
 poderá encerrar esse input com o texto '/send'. Esse final será
 detectado quando a linha começa com '/send' e termina com o ENTER.
 
 ## Parte 2 - Desativar cores por um flag ou parâmetro
+
+Status: Done
 
 Criar uma nova flag que irá desativar a exibição de cores.
 Ao fazer esse refactor, vamos criar uma "paleta de cores" com variáveis
