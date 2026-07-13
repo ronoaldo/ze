@@ -5,8 +5,18 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 )
+
+// GitDiffStats holds the aggregated counts of git changes.
+type GitDiffStats struct {
+	UnstagedAdd    int
+	UnstagedDel    int
+	StagedAdd      int
+	StagedDel      int
+	UntrackedCount int
+}
 
 // DiffTool implements detecting project changes using 'git diff'.
 type DiffTool struct {
@@ -36,44 +46,103 @@ func (t *DiffTool) Execute(args map[string]interface{}) (string, error) {
 		return "", fmt.Errorf("not a git repository")
 	}
 
-	var output strings.Builder
+	stats := t.getGitStats(workDir)
 
-	output.WriteString("--- GIT STATUS ---\n")
+	// Build Summary
+	var summary strings.Builder
+	summary.WriteString("SUMMARY: git_diff('.')")
+
+	if stats.UnstagedAdd+stats.UnstagedDel > 0 {
+		summary.WriteString(fmt.Sprintf(" [+%d/-%d]", stats.UnstagedAdd, stats.UnstagedDel))
+	}
+
+	if stats.StagedAdd+stats.StagedDel > 0 {
+		summary.WriteString(fmt.Sprintf(" [+%d/-%d staged]", stats.StagedAdd, stats.StagedDel))
+	}
+
+	if stats.UntrackedCount > 0 {
+		summary.WriteString(fmt.Sprintf(" %d new file", stats.UntrackedCount))
+	}
+
+	// Build Full Output for the LLM
+	var fullOutput strings.Builder
+	fullOutput.WriteString(summary.String())
+	fullOutput.WriteString("\n---\n")
+
+	fullOutput.WriteString("--- GIT STATUS ---\n")
 	statusOut, err := t.executeGit(workDir, "status", "--short")
-	if err != nil {
-		return "", err
+	if err == nil {
+		fullOutput.WriteString(statusOut)
 	}
-	output.WriteString(statusOut)
 
-	output.WriteString("\n--- GIT STATS ---\n")
-	statOut, err := t.executeGit(workDir, "diff", "--stat")
-	if err != nil {
-		return "", err
-	}
-	output.WriteString(statOut)
-
-	output.WriteString("\n--- GIT DIFF (unstaged) ---\n")
+	fullOutput.WriteString("\n--- GIT DIFF (unstaged) ---\n")
 	diffOut, err := t.executeGit(workDir, "diff")
-	if err != nil {
-		return "", err
+	if err == nil {
+		fullOutput.WriteString(diffOut)
 	}
-	output.WriteString(diffOut)
 
-	output.WriteString("\n--- GIT DIFF (staged) ---\n")
+	fullOutput.WriteString("\n--- GIT DIFF (staged) ---\n")
 	stagedDiffOut, err := t.executeGit(workDir, "diff", "--cached")
-	if err != nil {
-		return "", err
+	if err == nil {
+		fullOutput.WriteString(stagedDiffOut)
 	}
-	output.WriteString(stagedDiffOut)
 
-	output.WriteString("\n--- GIT DIFF STATS (staged) ---\n")
-	stagedStatOut, err := t.executeGit(workDir, "diff", "--cached", "--stat")
-	if err != nil {
-		return "", err
+	return fullOutput.String(), nil
+}
+
+func (t *DiffTool) getGitStats(dir string) GitDiffStats {
+	stats := GitDiffStats{}
+
+	// 1. Unstaged changes: git diff --numstat
+	unstagedOut, err := t.executeGit(dir, "diff", "--numstat")
+	if err == nil {
+		t.parseNumstat(unstagedOut, &stats.UnstagedAdd, &stats.UnstagedDel)
 	}
-	output.WriteString(stagedStatOut)
 
-	return output.String(), nil
+	// 2. Staged changes: git diff --numstat --cached
+	stagedOut, err := t.executeGit(dir, "diff", "--numstat", "--cached")
+	if err == nil {
+		t.parseNumstat(stagedOut, &stats.StagedAdd, &stats.StagedDel)
+	}
+
+	// 3. Untracked files: git status --short
+	statusOut, err := t.executeGit(dir, "status", "--short")
+	if err == nil {
+		lines := strings.Split(strings.TrimSpace(statusOut), "\n")
+		for _, line := range lines {
+			if len(line) >= 3 && line[:3] == "?? " {
+				stats.UntrackedCount++
+			}
+		}
+	}
+
+	return stats
+}
+
+func (t *DiffTool) parseNumstat(output string, add *int, del *int) {
+	lines := strings.Split(strings.TrimSpace(output), "\n")
+	for _, line := range lines {
+		if line == "" {
+			continue
+		}
+		fields := strings.Fields(line)
+		if len(fields) < 3 {
+			continue
+		}
+
+		// Handle binary files (represented by '-')
+		a, errA := strconv.Atoi(fields[0])
+		if errA != nil {
+			a = 0
+		}
+		d, errD := strconv.Atoi(fields[1])
+		if errD != nil {
+			d = 0
+		}
+
+		*add += a
+		*del += d
+	}
 }
 
 func (t *DiffTool) JSONSchema() map[string]interface{} {

@@ -18,13 +18,13 @@ Ao fazer esse refactor, vamos criar uma "paleta de cores" com variáveis
 para que possamos configurar melhor depois. Assim, podemos ter uma "paleta zero"
 que não aplica cor alguma e apenas imprime o texto.
 
-## Parte 3 - Melhorar a UI e UX do diff\_tool
+## Parte 3 - Melhorar a UI e UX do diff
 
 Hoje o diff mostra algumas vezes [0, 0] como linhas novas/removidas, mas
-na realidade, tem modificações.
+na realidade o diretório atual tem modificações. Isso é um bug.
 
-Analisando o exemplo de saída de alguns comandos do diff em ./sample/git-diff.md
-Implemente a saída correta como descrita no documento.
+No arquivo ./samples/git-diff.md existem diretivas de como 
+implementar a exibição correta do sumário.
 
 ## Parte 3 - Melhorar o multiline input
 

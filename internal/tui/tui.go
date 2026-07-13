@@ -81,7 +81,8 @@ func isUTF8Locale() bool {
 	lcAll := strings.ToUpper(os.Getenv("LC_ALL"))
 	lcCtype := strings.ToUpper(os.Getenv("LC_CTYPE"))
 	return strings.Contains(lang, "UTF-8") || strings.Contains(lcAll, "UTF-8") || strings.Contains(lcCtype, "UTF-8") ||
-		strings.Contains(lang, "UTF8") || strings.Contains(lcAll, "UTF8") || strings.Contains(lcCtype, "UTF8")
+		strings.Contains(lang, "UTF8") || strings.Contains(lcAll, "UTF8") || strings.Contains(lcCtype, "UTF8") ||
+		strings.Contains(lang, "UTF8") || strings.Contains(lcAll, "UTF8")
 }
 
 // Run starts the TUI event loop.
@@ -133,24 +134,22 @@ func (t *TUI) readLine() (string, error) {
 func (t *TUI) summarizeArgs(toolName string, argsJSON string) string {
 	var args map[string]interface{}
 	
-	// Since the Agent now ensures Arguments are cleaned during unmarshaling,
-	// a single unmarshal attempt should be sufficient.
 	err := json.Unmarshal([]byte(argsJSON), &args)
 	if err != nil {
 		return argsJSON
 	}
 
-	// Extract path for most file-related tools
 	if path, ok := args["path"].(string); ok {
 		return path
 	}
 
-	// Specific handling for other tools
 	switch toolName {
 	case "go_doc":
 		if pkg, ok := args["package"].(string); ok {
 			return pkg
 		}
+	case "diff":
+		return "."
 	}
 
 	return "{}"
@@ -188,35 +187,19 @@ func (t *TUI) summarizeResult(toolName string, result string) string {
 	case "go_doc":
 		return "Success"
 	case "diff":
-		startMarker := "--- GIT STATS ---"
-		endMarker := "--- GIT DIFF"
-		
-		startIdx := strings.Index(result, startMarker)
-		if startIdx == -1 {
-			return "Success (No stats)"
+		if strings.HasPrefix(result, "SUMMARY: ") {
+			lines := strings.SplitN(result, "\n", 2)
+			summary := strings.TrimPrefix(lines[0], "SUMMARY: ")
+			summary = strings.TrimSpace(summary)
+			if summary == "" {
+				return "no changes"
+			}
+			// Remove redundant prefix if it's in the summary line
+			summary = strings.TrimPrefix(summary, "git_diff('.')")
+			summary = strings.TrimPrefix(summary, "git_diff('.'),")
+			return strings.TrimSpace(summary)
 		}
-		
-		endIdx := strings.Index(result[startIdx:], endMarker)
-		var statsPart string
-		if endIdx == -1 {
-			statsPart = result[startIdx:]
-		} else {
-			statsPart = result[startIdx : startIdx+endIdx]
-		}
-
-		insMatch := reInserts.FindStringSubmatch(statsPart)
-		delMatch := reDeletes.FindStringSubmatch(statsPart)
-
-		ins := "0"
-		if len(insMatch) > 1 {
-			ins = insMatch[1]
-		}
-		del := "0"
-		if len(delMatch) > 1 {
-			del = delMatch[1]
-		}
-
-		return fmt.Sprintf("+%s, -%s", ins, del)
+		return "Success (No summary)"
 	default:
 		return "Success"
 	}
