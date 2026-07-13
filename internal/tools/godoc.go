@@ -26,7 +26,7 @@ func (t *GoDocTool) Execute(args map[string]interface{}) (ToolResult, error) {
 
 	return ToolResult{
 		FullResult: string(output),
-		Summary:    "Success",
+		Summary:    "",
 	}, nil
 }
 func (t *GoDocTool) JSONSchema() map[string]interface{} {

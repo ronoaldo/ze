@@ -65,9 +65,13 @@ func (t *EditFileTool) Execute(args map[string]interface{}) (ToolResult, error) 
 		return ToolResult{}, fmt.Errorf("failed to write file: %w", err)
 	}
 
+	netChange := totalAdditions - totalDeletions
+
 	summary := ""
-	if totalDeletions > 0 || totalAdditions > 0 {
-		summary = fmt.Sprintf("[+%d, -%d]", totalAdditions, totalDeletions)
+	if netChange > 0 {
+		summary = fmt.Sprintf("+%d", netChange)
+	} else if netChange < 0 {
+		summary = fmt.Sprintf("-%d", -netChange)
 	} else {
 		summary = "no changes"
 	}

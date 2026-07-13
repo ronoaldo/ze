@@ -63,9 +63,11 @@ func (t *DiffTool) Execute(args map[string]interface{}) (ToolResult, error) {
 		parts = append(parts, fmt.Sprintf("%d new file", stats.UntrackedCount))
 	}
 
-	summary := "git_diff('.')"
+	summary := ""
 	if len(parts) > 0 {
-		summary += " [" + strings.Join(parts, ", ") + "]"
+		summary = strings.Join(parts, ", ")
+	} else {
+		summary = "no changes"
 	}
 
 	// Build Full Output for the LLM
@@ -93,7 +95,7 @@ func (t *DiffTool) Execute(args map[string]interface{}) (ToolResult, error) {
 
 	return ToolResult{
 		FullResult: fullOutput.String(),
-		Summary:    strings.TrimSpace(summary),
+		Summary:    summary,
 	}, nil
 }
 

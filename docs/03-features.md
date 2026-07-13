@@ -18,6 +18,14 @@ links contendo páginas de documentação, etc.
 Ela deve, por segurança, só baixar incluir no contexto formato texto:
 HTML, JSON, Markdown, TXT, CSV serão aceitos.
 
+## Renderizar Markdown da resposta no terminal
+
+Renderizador básico para suportar:
+* Tabelas
+* Listas
+* Cabeçalhos e Negrito
+* Itálico
+* Sublinhado
 
 ## Tool de "ver a doc completa" go_doc('all')
 
@@ -26,5 +34,3 @@ Melhorar a tool para rodar algo equivalente a:
     go list ./... | while read pkg ; do go doc -all $pkg ; done
 
 Desta forma conseguimos ter um "full api" da implementação atual.
-
-

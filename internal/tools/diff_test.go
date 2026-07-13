@@ -26,9 +26,8 @@ func TestDiffTool(t *testing.T) {
 		if err != nil {
 			t.Fatalf("DiffTool execution failed: %v", err)
 		}
-		expected := "git_diff('.')"
-		if !strings.Contains(res.FullResult, expected) {
-			t.Errorf("expected to contain %q, got %q", expected, res.FullResult)
+		if !strings.Contains(res.FullResult, "no changes") {
+			t.Errorf("expected to contain \"no changes\", got %q", res.FullResult)
 		}
 	})
 
@@ -68,8 +67,8 @@ func TestDiffTool(t *testing.T) {
 			t.Fatalf("DiffTool execution failed: %v", err)
 		}
 
-		if !strings.Contains(res.FullResult, "git_diff('.') [+1/-1, 1 new file]") {
-			t.Errorf("expected summary to contain \"git_diff('.') [+1/-1, 1 new file]\", got %q", res.FullResult)
+		if !strings.Contains(res.FullResult, "+1/-1, 1 new file") {
+			t.Errorf("expected summary to contain \"+1/-1, 1 new file\", got %q", res.FullResult)
 		}
 
 	})
@@ -105,8 +104,8 @@ func TestDiffTool(t *testing.T) {
 			t.Fatalf("DiffTool execution failed: %v", err)
 		}
 
-		if !strings.Contains(res.FullResult, "git_diff('.') [+1/-1 staged]") {
-			t.Errorf("expected summary to contain \"git_diff('.') [+1/-1 staged]\", got %q", res.FullResult)
+		if !strings.Contains(res.FullResult, "+1/-1 staged") {
+			t.Errorf("expected summary to contain \"+1/-1 staged\", got %q", res.FullResult)
 		}
 	})
 
@@ -152,8 +151,8 @@ func TestDiffTool(t *testing.T) {
 			t.Fatalf("DiffTool execution failed: %v", err)
 		}
 
-		if !strings.Contains(res.FullResult, "git_diff('.') [+1/-1, +1/-1 staged, 1 new file]") {
-			t.Errorf("expected summary to contain \"git_diff('.') [+1/-1, +1/-1 staged, 1 new file]\", got %q", res.FullResult)
+		if !strings.Contains(res.FullResult, "+1/-1, +1/-1 staged, 1 new file") {
+			t.Errorf("expected summary to contain \"+1/-1, +1/-1 staged, 1 new file\", got %q", res.FullResult)
 		}
 
 	})

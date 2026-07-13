@@ -37,14 +37,14 @@ func (t *GoTestTool) Execute(args map[string]interface{}) (ToolResult, error) {
 	if err != nil {
 		return ToolResult{
 			FullResult:         outputStr,
-			Summary:            "tests failed",
+			Summary:            "failed",
 			RequiresFullOutput: true,
 		}, nil
 	}
 
 	return ToolResult{
 		FullResult:         outputStr,
-		Summary:            "tests passed",
+		Summary:            "passed",
 		RequiresFullOutput: false,
 	}, nil
 }

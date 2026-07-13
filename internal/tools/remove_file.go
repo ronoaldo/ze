@@ -59,7 +59,7 @@ func (t *RemoveFileTool) Execute(args map[string]interface{}) (ToolResult, error
 	fullMsg := fmt.Sprintf("Successfully removed %s", path)
 	return ToolResult{
 		FullResult: fullMsg,
-		Summary:    "Removed",
+		Summary:    "",
 	}, nil
 }
 
