@@ -75,6 +75,7 @@ type TUI struct {
 	showThinking    bool
 	palette         Palette
 	rng             *rand.Rand
+	isHeadless      bool
 }
 
 func isUTF8Locale() bool {
@@ -92,16 +93,26 @@ func isUTF8Locale() bool {
 func (t *TUI) Run(handler func(msg string) (string, agent.AgentStats, error), isMultiline func() bool) error {
 	for {
 		// Print prompt
-		if isMultiline != nil && isMultiline() {
-			fmt.Fprintf(t.w, "   %s%s%s ", t.palette.Cyan, ">", t.palette.Reset)
-		} else {
-			fmt.Fprintf(t.w, "%s%s%s%s %s%s%s ", t.palette.Bold, t.palette.Cyan, "ze", t.palette.Reset, t.palette.Cyan, ">", t.palette.Reset)
+		if !t.isHeadless {
+			if isMultiline != nil && isMultiline() {
+				fmt.Fprintf(t.w, "   %s%s%s ", t.palette.Cyan, ">", t.palette.Reset)
+			} else {
+				fmt.Fprintf(t.w, "%s%s%s%s %s%s%s ", t.palette.Bold, t.palette.Cyan, "ze", t.palette.Reset, t.palette.Cyan, ">", t.palette.Reset)
+			}
 		}
 
 		// Read input
 		input, err := t.readLine()
 		if err != nil {
+			if err == io.EOF {
+				return nil
+			}
 			return err
+		}
+
+		// Echo input if headless
+		if t.isHeadless {
+			fmt.Fprintf(t.w, "prompt > %s\n", input)
 		}
 
 		// Call handler (LLM)
@@ -205,10 +216,19 @@ func (t *TUI) ReportStats(stats agent.AgentStats) {
 // New creates a new TUI instance.
 func New(verbose bool, showThinking bool, noColor bool) *TUI {
 	EnsureUTF8Terminal()
+
+	isTTY := false
+	if stat, err := os.Stdin.Stat(); err == nil {
+		if stat.Mode()&os.ModeCharDevice != 0 {
+			isTTY = true
+		}
+	}
+
 	palette := DefaultPalette()
-	if noColor {
+	if noColor || !isTTY {
 		palette = NoColorPalette()
 	}
+
 	return &TUI{
 		w:               os.Stdout,
 		r:               os.Stdin,
@@ -217,6 +237,7 @@ func New(verbose bool, showThinking bool, noColor bool) *TUI {
 		showThinking:    showThinking,
 		palette:         palette,
 		rng:             rand.New(rand.NewSource(time.Now().UnixNano())),
+		isHeadless:      !isTTY,
 	}
 }
 
@@ -246,6 +267,10 @@ func (t *TUI) ReportReasoning(content string, tokens int) {
 	if t.showThinking {
 		fmt.Fprintf(t.w, "%s%s%s\n", t.palette.Dim, content, t.palette.Reset)
 	}
+}
+
+func (t *TUI) IsHeadless() bool {
+	return t.isHeadless
 }
 
 func (t *TUI) getTerminalWidth() int {

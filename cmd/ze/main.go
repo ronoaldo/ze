@@ -162,7 +162,9 @@ func main() {
 	)
 
 	// Show model info using Neofetch-style banner
-	printNeofetch(modelName, cfg)
+	if !t.IsHeadless() {
+		printNeofetch(modelName, cfg)
+	}
 
 	// Run TUI — wraps the agent's Run method
 	err = t.Run(func(msg string) (string, agent.AgentStats, error) {
