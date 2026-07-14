@@ -48,11 +48,13 @@ goreleaser build --snapshot --clean
 | Flag | Environment Variable | Default | Description |
 |---|---|---|---|
 | `--url` | `LLAMA_URL` | `http://localhost:8084` | Llama server URL |
+| `--model` | - | | Specify model name |
 | `--timeout` | `LLAMA_TIMEOUT` | `5m` | Timeout duration |
 | `--verbose` | - | `false` | Enable verbose tool output |
 | `--verbose-api-calls` | - | `false` | Log raw API requests/responses |
 | `--max-iterations` | - | `50` | Maximum number of agent iterations |
 | `--show-thinking` | - | `false` | Show reasoning process in the UI |
+| `--no-color` | - | `false` | Disable color output |
 | `--version` / `-v` | - | - | Show version information |
 
 ### Slash Commands
@@ -74,6 +76,12 @@ The agent can interact with your environment using the following tools:
 - `go_doc`: Inspect Go documentation for packages and functions.
 - `go_test`: Run Go tests in the current directory.
 - `diff`: Show changes between files or current state.
+
+## 🛠 Troubleshooting
+
+- **Connection Error:** Ensure `llama-server` is running and accessible at the URL provided via `--url`.
+- **Model Not Found:** Verify that the model name is correct or allow Zé to detect it automatically.
+- **Permission Denied:** Ensure the agent has read/write permissions in the directory it is operating in.
 
 ## 📜 License
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -e
 
-export LOG_FILE="./tmp/ze-$(date +%Y%m%d-%H%M%S).log"
+go install -x ./cmd/ze || exit 1
 
-go install ./cmd/ze || die
+export LOG_FILE="./tmp/ze-$(date +%Y%m%d-%H%M%S).log"
 script --command ze $LOG_FILE

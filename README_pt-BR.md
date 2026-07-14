@@ -48,11 +48,13 @@ goreleaser build --snapshot --clean
 | Flag | Variável de Ambiente | Padrão | Descrição |
 |---|---|---|---|
 | `--url` | `LLAMA_URL` | `http://localhost:8084` | URL do servidor Llama |
+| `--model` | - | | Especificar nome do modelo |
 | `--timeout` | `LLAMA_TIMEOUT` | `5m` | Duração do timeout |
 | `--verbose` | - | `false` | Habilita saída detalhada das ferramentas |
 | `--verbose-api-calls` | - | `false` | Log de requisições/respostas brutas da API |
 | `--max-iterations` | - | `50` | Número máximo de iterações do agente |
 | `--show-thinking` | - | `false` | Mostra o processo de raciocínio na interface |
+| `--no-color` | - | `false` | Desabilita a saída colorida |
 | `--version` / `-v` | - | - | Mostra informações da versão |
 
 ### Comandos de Barra (Slash Commands)
@@ -74,6 +76,12 @@ O agente pode interagir com seu ambiente usando as seguintes ferramentas:
 - `go_doc`: Inspeciona a documentação Go para pacotes e funções.
 - `go_test`: Executa testes Go no diretório atual.
 - `diff`: Mostra as mudanças entre arquivos ou no estado atual.
+
+## 🛠 Solução de Problemas
+
+- **Erro de Conexão:** Certifique-se de que o `llama-server` está rodando e é acessível na URL fornecida via `--url`.
+- **Modelo não encontrado:** Verifique se o nome do modelo está correto ou permita que o Zé o detecte automaticamente.
+- **Permissão Negada:** Certifique-se de que o agente tem permissões de leitura/escrita no diretório em que está operando.
 
 ## 📜 Licença
 
