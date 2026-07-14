@@ -84,8 +84,8 @@ func TestInputHandler_MultilineActivation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
-	if resp != "" {
-		t.Errorf("expected empty response, got %q", resp)
+	if resp != "* Multiline input enabled. Finish with /send. Type/paste your prompt below:" {
+		t.Errorf("expected '* Multiline input enabled. Finish with /send. Type/paste your prompt below:', got %q", resp)
 	}
 	if !h.isMultiline {
 		t.Error("expected isMultiline to be true")

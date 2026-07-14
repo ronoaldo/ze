@@ -95,7 +95,7 @@ func (t *TUI) Run(handler func(msg string) (string, agent.AgentStats, error), is
 		// Print prompt
 		if !t.isHeadless {
 			if isMultiline != nil && isMultiline() {
-				fmt.Fprintf(t.w, "   %s%s%s ", t.palette.Cyan, ">", t.palette.Reset)
+				// No prompt in multiline mode as requested
 			} else {
 				fmt.Fprintf(t.w, "%s%s%s%s %s%s%s ", t.palette.Bold, t.palette.Cyan, "ze", t.palette.Reset, t.palette.Cyan, ">", t.palette.Reset)
 			}
@@ -104,9 +104,6 @@ func (t *TUI) Run(handler func(msg string) (string, agent.AgentStats, error), is
 		// Read input
 		input, err := t.readLine()
 		if err != nil {
-			if err == io.EOF {
-				return nil
-			}
 			return err
 		}
 
@@ -126,10 +123,14 @@ func (t *TUI) Run(handler func(msg string) (string, agent.AgentStats, error), is
 
 		// Display response
 		if response != "" {
-			fmt.Fprintf(t.w, "\n%s\n\n", response)
-			// Only report stats if they are not empty
-			if stats.TotalTokens > 0 || stats.Duration > 0 {
-				t.ReportStats(stats)
+			if strings.HasPrefix(response, "* Multiline input enabled") {
+				fmt.Fprintf(t.w, "%s%s%s\n", t.palette.Dim, response, t.palette.Reset)
+			} else {
+				fmt.Fprintf(t.w, "\n%s\n\n", response)
+				// Only report stats if they are not empty
+				if stats.TotalTokens > 0 || stats.Duration > 0 {
+					t.ReportStats(stats)
+				}
 			}
 		}
 	}

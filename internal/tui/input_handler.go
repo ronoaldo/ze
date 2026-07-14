@@ -67,7 +67,7 @@ func (h *InputHandler) Process(input string) (string, agent.AgentStats, error) {
 	// 3. Verifica se é o comando para ativar o modo multiline
 	if input == "/multiline" {
 		h.isMultiline = true
-		return "", agent.AgentStats{}, nil
+		return "* Multiline input enabled. Finish with /send. Type/paste your prompt below:", agent.AgentStats{}, nil
 	}
 
 	// 4. Se for um comando (começa com /)
