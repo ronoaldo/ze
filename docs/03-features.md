@@ -1,14 +1,35 @@
 # Novas Features
 
-Plano de funcionalidades desejáveis para o Ze.
+Plano de funcionalidades desejáveis para o Zé! Esse plano deve ser implementado com TDD.
 
-## Executar comandos no shell com !
+## Feature 1: Executar comandos no shell com !
 
-A primeira feature desejada é executar comandos com o !, como "!ls", e ver o stdout/stderr deste comando na sessão do zé.
-O output destes comandos será enviado para o modelo de AI, o que permite que ela veja o que fizemos.
-Isso também permite "embutir" prompts salvos em arquivos com "!cat docs/todo.md"
+A primeira feature desejada é executar comandos com o !, como "!ls",
+e ver o stdout/stderr deste comando na sessão do zé.
 
-## Tool WebFetch para baixar da web
+O agente deve então acumular os comandos executados até o próximo prompt ser enviado para a IA.
+Ao enviar, os comandos executados devem ir para o modelo LLM, como mostrado no exemplo abaixo.
+
+Supondo esta sessão de interação com o zé:
+
+```
+ze > !ls
+file1.txt
+
+ze > Analise o conteúdo do arquivo listado
+```
+
+A ia recebe a combinação do prompt do usuário e o comando que ele rodou:
+
+```
+User executed command:
+$ ls
+file1.txt
+
+Analise o conteúdo do arquivo listado.
+```
+
+## Feature 2: Tool WebFetch para baixar da web
 
 Essa tool é o mínimo até termos WebSearch via MCPs.
 
@@ -18,7 +39,7 @@ links contendo páginas de documentação, etc.
 Ela deve, por segurança, só baixar incluir no contexto formato texto:
 HTML, JSON, Markdown, TXT, CSV serão aceitos.
 
-## Renderizar Markdown da resposta no terminal
+## Feature 3: Renderizar Markdown da resposta no terminal
 
 Renderizador básico para suportar:
 * Tabelas
@@ -27,7 +48,7 @@ Renderizador básico para suportar:
 * Itálico
 * Sublinhado
 
-## Tool de "ver a doc completa" go_doc('all')
+## Feature 4: Tool de "ver a doc completa" go_doc('all')
 
 Melhorar a tool para rodar algo equivalente a:
 
