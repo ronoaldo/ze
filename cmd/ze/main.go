@@ -138,6 +138,7 @@ func main() {
 		&tools.GoDocTool{},
 		&tools.GoTestTool{},
 		&tools.DiffTool{},
+		&tools.GitCommitTool{},
 	}
 
 	// Create TUI
