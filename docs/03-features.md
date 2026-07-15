@@ -57,3 +57,10 @@ Melhorar a tool para rodar algo equivalente a:
     go list ./... | while read pkg ; do go doc -all $pkg ; done
 
 Desta forma conseguimos ter um "full api" da implementação atual.
+
+## Feature 5: Nova ferramenta: git_commit
+
+Esta ferramenta irá receber a mensagem do commit. Ela deve ter na
+descrição de forma bem explícita que só pode ser feita DEPOIS da
+aprovação explícita do usuário para fazer o commit. Ela não deve
+ser chamada apenas para gerar a mensagem. Sempre confirmar com o usuário antes.
