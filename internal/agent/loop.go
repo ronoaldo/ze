@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/ronoaldo/ze/internal/llm"
@@ -26,18 +27,20 @@ type AgentReporter interface {
 	ReportReasoning(content string, tokens int)
 }
 
-
 // Agent represents the core programming agent.
 type Agent struct {
-	Client       llm.Client
-	Model        string // The selected model name
-	Tools        map[string]tools.Tool
-	ToolDefs     []llm.ToolDefinition
-	History      []llm.ChatMessage
-	Reporter     AgentReporter // Optional reporter for UI updates
-	Verbose      bool
-	MaxIteration int
-	ShowThinking bool
+	Client               llm.Client
+	Model               string // The selected model name
+	Tools               map[string]tools.Tool
+	ToolDefs            []llm.ToolDefinition
+	History             []llm.ChatMessage
+	Reporter            AgentReporter // Optional reporter for UI updates
+	Verbose             bool
+	MaxIteration        int
+	ShowThinking        bool
+	shellExecutor       *ShellExecutor
+	pendingCommandString  string
+	pendingCommandOutput string
 }
 
 func NewAgent(client llm.Client, model string, availableTools []tools.Tool, verbose bool, maxIter int, showThinking bool) *Agent {
@@ -64,14 +67,15 @@ func NewAgent(client llm.Client, model string, availableTools []tools.Tool, verb
 	}
 
 	return &Agent{
-		Client:       client,
-		Model:        model,
-		Tools:        toolMap,
-		ToolDefs:     toolDefs,
-		History:      []llm.ChatMessage{},
-		Verbose:      verbose,
-		MaxIteration: maxIter,
-		ShowThinking: showThinking,
+		Client:               client,
+		Model:               model,
+		Tools:               toolMap,
+		ToolDefs:            toolDefs,
+		History:             []llm.ChatMessage{},
+		Verbose:             verbose,
+		MaxIteration:        maxIter,
+		ShowThinking:        showThinking,
+		shellExecutor:       &ShellExecutor{},
 	}
 }
 
@@ -82,10 +86,32 @@ func (a *Agent) Run(userInput string) (string, AgentStats, error) {
 	var lastCompTokens int
 	var lastChatDuration time.Duration
 
-	// 1. Add user message to history
-	a.History = append(a.History, llm.ChatMessage{Role: "user", Content: userInput})
+	// 1. Handle shell command execution
+	if strings.HasPrefix(userInput, "!") {
+		cmdStr := strings.TrimSpace(userInput[1:])
+		output, err := a.shellExecutor.Execute(cmdStr)
+		if err != nil && output == "" {
+			return "", AgentStats{}, fmt.Errorf("shell error: %w", err)
+		}
+		a.pendingCommandString = cmdStr
+		a.pendingCommandOutput = output
+		return output, AgentStats{}, nil
+	}
 
-	// 2. Multi-step loop
+	// 2. Prepare input for the LLM
+	finalInput := userInput
+	if a.pendingCommandString != "" {
+		finalInput = fmt.Sprintf("User executed command:\n$ %s\n%s\n\n%s",
+			a.pendingCommandString, a.pendingCommandOutput, userInput)
+		// Reset for next turn
+		a.pendingCommandString = ""
+		a.pendingCommandOutput = ""
+	}
+
+	// 3. Add user message to history
+	a.History = append(a.History, llm.ChatMessage{Role: "user", Content: finalInput})
+
+	// 4. Multi-step loop
 	for i := 0; i < a.MaxIteration; i++ {
 		req := a.prepareRequest()
 

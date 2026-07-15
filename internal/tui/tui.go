@@ -140,6 +140,9 @@ func (t *TUI) Run(handler func(msg string) (string, agent.AgentStats, error), is
 func (t *TUI) readLine() (string, error) {
 	line, err := t.reader.ReadString('\n')
 	if err != nil {
+		if err == io.EOF {
+			return "", io.EOF
+		}
 		return "", err
 	}
 	return strings.TrimRight(line, "\r\n"), nil

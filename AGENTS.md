@@ -40,6 +40,7 @@ When using `edit_file`, follow these rules strictly:
 - **Dependencies:** Use the Go standard library. Avoid external dependencies.
 - **Naming:** Use meaningful names; exported functions should use verbs.
 - **Tests:** Use `*_test.go` files in the same package. Use `t.Helper()`.
+- **Test Preservation:** NUNCA remova testes existentes, a menos que eles estejam verificando uma funcionalidade que foi removida. Testes devem sempre ser ajustados conforme necessário à medida que o projeto evolui.
 
 ## Testing & Git
 - **Testing:** Always run `go test ./... -v` before committing. Use `t.TempDir()` for file-related tests.

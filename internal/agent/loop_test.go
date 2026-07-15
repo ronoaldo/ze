@@ -2,230 +2,378 @@ package agent
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 
 	"github.com/ronoaldo/ze/internal/llm"
 	"github.com/ronoaldo/ze/internal/tools"
 )
 
-// mockLLMClient simulates LLM responses for testing.
-type mockLLMClient struct {
-	responses []llm.ChatMessage
-	callCount int
-	infiniteToolCalls bool
+// MockClient simulates LLM responses for testing.
+type MockClient struct {
+	ChatFunc        func(req *llm.ChatRequest) (*llm.ChatResponse, error)
+	ListModelsFunc func() ([]llm.ModelInfo, error)
 }
 
-func (m *mockLLMClient) Chat(req *llm.ChatRequest) (*llm.ChatResponse, error) {
-	m.callCount++
-	var msg llm.ChatMessage
-	if m.infiniteToolCalls {
-		args, _ := json.Marshal(map[string]interface{}{"path": "test.go", "content": "y"})
-		msg = llm.ChatMessage{
-			Role: "assistant",
-			ToolCalls: []llm.ToolCall{
-				{
-					ID:   "call_1",
-					Type: "function",
-					Function: llm.ToolCallFunction{
-						Name:      "write_file",
-						Arguments: args,
-					},
-				},
-			},
-		}
-	} else if m.callCount <= len(m.responses) {
-		msg = m.responses[m.callCount-1]
-	} else {
-		msg = llm.ChatMessage{Role: "assistant", Content: "Final answer after tool use."}
-	}
+func (m *MockClient) Chat(req *llm.ChatRequest) (*llm.ChatResponse, error) {
+	return m.ChatFunc(req)
+}
+
+func (m *MockClient) ListModels() ([]llm.ModelInfo, error) {
+	return m.ListModelsFunc()
+}
+
+// MockTool is a simple tool implementation for testing.
+type MockTool struct {
+	name    string
+	execute func(args map[string]interface{}) (tools.ToolResult, error)
+	schema  map[string]interface{}
+}
+
+func (m *MockTool) Name() string { return m.name }
+func (m *MockTool) Execute(args map[string]interface{}) (tools.ToolResult, error) {
+	return m.execute(args)
+}
+func (m *MockTool) JSONSchema() map[string]interface{} { return m.schema }
+
+// Helper to create a ChatResponse with a single choice
+func createChatResponse(msg llm.ChatMessage) *llm.ChatResponse {
 	return &llm.ChatResponse{
 		Choices: []struct {
 			Message llm.ChatMessage `json:"message"`
 			Finish  string          `json:"finish_reason"`
 		}{
-			{Message: msg, Finish: "stop"},
-		},
-		Usage: llm.Usage{
-			PromptTokens:     10,
-			CompletionTokens: 10,
-			TotalTokens:      20,
-		},
-	}, nil
-}
-
-func (m *mockLLMClient) ListModels() ([]llm.ModelInfo, error) {
-	return nil, nil
-}
-
-// newTestAgent creates an agent with a temp dir for file operations.
-func newTestAgent(t *testing.T, mock *mockLLMClient, toolList []tools.Tool) *Agent {
-	t.Helper()
-	tmpDir := t.TempDir()
-
-	fixedTools := make([]tools.Tool, 0, len(toolList))
-	for _, tool := range toolList {
-		switch tool.(type) {
-		case *tools.FileReadTool:
-			fixedTools = append(fixedTools, &tools.FileReadTool{BaseDir: tmpDir})
-		case *tools.FileWriteTool:
-			fixedTools = append(fixedTools, &tools.FileWriteTool{BaseDir: tmpDir})
-		case *tools.ListFilesTool:
-			fixedTools = append(fixedTools, &tools.ListFilesTool{BaseDir: tmpDir})
-		default:
-			fixedTools = append(fixedTools, tool)
-		}
-	}
-	
-	return NewAgent(mock, "gemma-4-9b", fixedTools, false, 20, false)
-}
-
-func TestRun_NoToolCall_ReturnsDirectAnswer(t *testing.T) {
-	mock := &mockLLMClient{responses: []llm.ChatMessage{
-		{Role: "assistant", Content: "Hello, I can help you with code!"},
-	}}
-	agent := newTestAgent(t, mock, nil)
-
-	resp, _, err := agent.Run("What can you do?")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if resp != "Hello, I can help you with code!" {
-		t.Errorf("expected 'Hello, I can help you with code!', got '%s'", resp)
-	}
-	if mock.callCount != 1 {
-		t.Errorf("expected 1 LLM call, got %d", mock.callCount)
-	}
-}
-
-func TestRun_WithToolCall_ReCallsLLM(t *testing.T) {
-	args, _ := json.Marshal(map[string]interface{}{"path": "test.go", "content": "package main"})
-	mock := &mockLLMClient{responses: []llm.ChatMessage{
-		{
-			Role: "assistant",
-			ToolCalls: []llm.ToolCall{
-				{
-					ID:   "call_1",
-					Type: "function",
-					Function: llm.ToolCallFunction{
-						Name:      "write_file",
-						Arguments: args,
-					},
-				},
+			{
+				Message: msg,
+				Finish:  "stop",
 			},
 		},
-	}}
-	agent := newTestAgent(t, mock, []tools.Tool{&tools.FileWriteTool{}})
-
-	resp, _, err := agent.Run("Write a Go file")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if resp != "Final answer after tool use." {
-		t.Errorf("expected 'Final answer after tool use.', got '%s'", resp)
-	}
-	if mock.callCount != 2 {
-		t.Errorf("expected 2 LLM calls (1st: tool call, 2nd: final answer), got %d", mock.callCount)
 	}
 }
 
-func TestRun_MaxIterations_WhenOnlyToolCalls(t *testing.T) {
-	mock := &mockLLMClient{infiniteToolCalls: true}
-	agent := newTestAgent(t, mock, []tools.Tool{&tools.FileWriteTool{}})
-
-	_, _, err := agent.Run("Write something")
-	if err == nil {
-		t.Fatal("expected max iterations error")
-	}
-	if mock.callCount != 20 {
-		t.Errorf("expected 20 LLM calls, got %d", mock.callCount)
-	}
-}
-
-func TestRun_MultipleToolCallsInOneResponse(t *testing.T) {
-	args1, _ := json.Marshal(map[string]interface{}{"path": "a.go", "content": "package main"})
-	args2, _ := json.Marshal(map[string]interface{}{"path": "b.go", "content": "package main"})
-	mock := &mockLLMClient{responses: []llm.ChatMessage{
-		{
-			Role: "assistant",
-			ToolCalls: []llm.ToolCall{
-				{
-					ID:   "call_1",
-					Type: "function",
-					Function: llm.ToolCallFunction{
-						Name:      "write_file",
-						Arguments: args1,
-					},
-				},
-				{
-					ID:   "call_2",
-					Type: "function",
-					Function: llm.ToolCallFunction{
-						Name:      "write_file",
-						Arguments: args2,
-					},
-				},
-			},
+func TestAgent_Run_ShellCommand(t *testing.T) {
+	mockClient := &MockClient{
+		ChatFunc: func(req *llm.ChatRequest) (*llm.ChatResponse, error) {
+			return createChatResponse(llm.ChatMessage{Content: "I received it"}), nil
 		},
-	}}
-	agent := newTestAgent(t, mock, []tools.Tool{&tools.FileWriteTool{}})
+	}
 
-	resp, _, err := agent.Run("Write two files")
+	a := NewAgent(mockClient, "test-model", nil, false, 5, false)
+
+	// 1. Execute shell command
+	output, _, err := a.Run("!echo hello")
 	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf("Expected no error, got %v", err)
 	}
-	if resp != "Final answer after tool use." {
-		t.Errorf("expected 'Final answer after tool use.', got '%s'", resp)
-	}
-	if mock.callCount != 2 {
-		t.Errorf("expected 2 LLM calls, got %d", mock.callCount)
-	}
-}
-
-func TestToolCallID_Is_Correctly_Set(t *testing.T) {
-	args, _ := json.Marshal(map[string]interface{}{"path": "test.go", "content": "package main"})
-	mock := &mockLLMClient{responses: []llm.ChatMessage{
-		{
-			Role: "assistant",
-			ToolCalls: []llm.ToolCall{
-				{
-					ID:   "call_abc_123",
-					Type: "function",
-					Function: llm.ToolCallFunction{
-						Name:      "write_file",
-						Arguments: args,
-					},
-				},
-			},
-		},
-		{
-			Role: "assistant",
-			Content: "Done!",
-		},
-	}}
-	agent := newTestAgent(t, mock, []tools.Tool{&tools.FileWriteTool{}})
-
-	resp, _, err := agent.Run("Write a file")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if resp != "Done!" {
-		t.Errorf("expected 'Done!', got '%s'", resp)
+	if !strings.Contains(output, "hello") {
+		t.Errorf("Expected output to contain 'hello', got %q", output)
 	}
 
-	// Check history for the tool response message
-	foundToolMessage := false
-	for _, msg := range agent.History {
-		if msg.Role == "tool" {
-			foundToolMessage = true
-			if msg.ToolCallID != "call_abc_123" {
-				t.Errorf("expected ToolCallID 'call_abc_123', got '%s'", msg.ToolCallID)
+	// 2. Call with actual prompt to check if command was injected
+	var receivedPrompt string
+	mockClient.ChatFunc = func(req *llm.ChatRequest) (*llm.ChatResponse, error) {
+		for _, msg := range req.Messages {
+			if msg.Role == "user" && strings.Contains(msg.Content, "User executed command") {
+				receivedPrompt = msg.Content
+				break
 			}
+		}
+		return createChatResponse(llm.ChatMessage{Content: "Response"}), nil
+	}
+
+	_, _, err = a.Run("What was the command?")
+	if err != nil {
+		t.Fatalf("Expected no error, got %v", err)
+	}
+
+	expectedSnippet := "User executed command:\n$ echo hello\nhello"
+	if !strings.Contains(receivedPrompt, expectedSnippet) {
+		t.Errorf("Prompt did not contain expected snippet.\nGot: %q", receivedPrompt)
+	}
+}
+
+func TestAgent_Run_NoCommand(t *testing.T) {
+	mockClient := &MockClient{
+		ChatFunc: func(req *llm.ChatRequest) (*llm.ChatResponse, error) {
+			return createChatResponse(llm.ChatMessage{Content: "Response"}), nil
+		},
+	}
+
+	a := NewAgent(mockClient, "test-model", nil, false, 5, false)
+
+	_, _, err := a.Run("Just a normal message")
+	if err != nil {
+		t.Fatalf("Expected no error, got %v", err)
+	}
+
+	if len(a.History) != 2 {
+		t.Errorf("Expected 2 history messages, got %d", len(a.History))
+	}
+	if a.History[0].Content != "Just a normal message" {
+		t.Errorf("Expected first content 'Just a normal message', got %q", a.History[0].Content)
+	}
+}
+
+func TestAgent_Run_NoToolCall_ReturnsDirectAnswer(t *testing.T) {
+	mockClient := &MockClient{
+		ChatFunc: func(req *llm.ChatRequest) (*llm.ChatResponse, error) {
+			return createChatResponse(llm.ChatMessage{Content: "Hello there!"}), nil
+		},
+	}
+
+	a := NewAgent(mockClient, "test-model", nil, false, 5, false)
+
+	resp, _, err := a.Run("Say hi")
+	if err != nil {
+		t.Fatalf("Expected no error, got %v", err)
+	}
+
+	if resp != "Hello there!" {
+		t.Errorf("Expected 'Hello there!', got %q", resp)
+	}
+
+	if len(a.History) != 2 {
+		t.Errorf("Expected 2 history messages (user + assistant), got %d", len(a.History))
+	}
+}
+
+func TestAgent_Run_WithToolCall_ReCallsLLM(t *testing.T) {
+	toolName := "test_tool"
+	toolArgs := map[string]interface{}{"val": "hello"}
+	argsJSON, _ := json.Marshal(toolArgs)
+
+	mockTool := &MockTool{
+		name: toolName,
+		execute: func(args map[string]interface{}) (tools.ToolResult, error) {
+			return tools.ToolResult{FullResult: "tool success"}, nil
+		},
+		schema: map[string]interface{}{
+			"description": "a test tool",
+			"parameters":  map[string]interface{}{},
+		},
+	}
+
+	callCount := 0
+	mockClient := &MockClient{
+		ChatFunc: func(req *llm.ChatRequest) (*llm.ChatResponse, error) {
+			callCount++
+			if callCount == 1 {
+				return createChatResponse(llm.ChatMessage{
+					Role: "assistant",
+					ToolCalls: []llm.ToolCall{
+						{
+							ID:   "call_1",
+							Type: "function",
+							Function: llm.ToolCallFunction{
+								Name:      toolName,
+								Arguments: argsJSON,
+							},
+						},
+					},
+				}), nil
+			}
+			return createChatResponse(llm.ChatMessage{Content: "Final answer"}), nil
+		},
+	}
+
+	a := NewAgent(mockClient, "test-model", []tools.Tool{mockTool}, false, 5, false)
+
+	resp, _, err := a.Run("Use the tool")
+	if err != nil {
+		t.Fatalf("Expected no error, got %v", err)
+	}
+
+	if resp != "Final answer" {
+		t.Errorf("Expected 'Final answer', got %q", resp)
+	}
+
+	if callCount != 2 {
+		t.Errorf("Expected 2 LLM calls, got %d", callCount)
+	}
+
+	// History should have: User, Assistant (tool call), Tool (result), Assistant (final)
+	if len(a.History) != 4 {
+		t.Errorf("Expected 4 history messages, got %d", len(a.History))
+	}
+}
+
+func TestAgent_Run_MaxIterations_WhenOnlyToolCalls(t *testing.T) {
+	mockTool := &MockTool{
+		name: "infinite_tool",
+		execute: func(args map[string]interface{}) (tools.ToolResult, error) {
+			return tools.ToolResult{FullResult: "still working"}, nil
+		},
+		schema: map[string]interface{}{
+			"description": "an infinite tool",
+			"parameters":  map[string]interface{}{},
+		},
+	}
+
+	argsJSON, _ := json.Marshal(map[string]interface{}{})
+	mockClient := &MockClient{
+		ChatFunc: func(req *llm.ChatRequest) (*llm.ChatResponse, error) {
+			return createChatResponse(llm.ChatMessage{
+				Role: "assistant",
+				ToolCalls: []llm.ToolCall{
+					{
+						ID:   "call_1",
+						Type: "function",
+						Function: llm.ToolCallFunction{
+							Name:      "infinite_tool",
+							Arguments: argsJSON,
+						},
+					},
+				},
+			}), nil
+		},
+	}
+
+	// Limit to 2 iterations
+	a := NewAgent(mockClient, "test-model", []tools.Tool{mockTool}, false, 2, false)
+
+	_, _, err := a.Run("Keep using tool")
+	if err == nil {
+		t.Fatal("Expected error due to max iterations, but got nil")
+	}
+
+	if !strings.Contains(err.Error(), "reached max iterations") {
+		t.Errorf("Expected max iterations error, got: %v", err)
+	}
+}
+
+func TestAgent_Run_MultipleToolCallsInOneResponse(t *testing.T) {
+	tool1 := &MockTool{
+		name: "tool1",
+		execute: func(args map[string]interface{}) (tools.ToolResult, error) {
+			return tools.ToolResult{FullResult: "res1"}, nil
+		},
+		schema: map[string]interface{}{
+			"description": "tool 1",
+			"parameters":  map[string]interface{}{},
+		},
+	}
+	tool2 := &MockTool{
+		name: "tool2",
+		execute: func(args map[string]interface{}) (tools.ToolResult, error) {
+			return tools.ToolResult{FullResult: "res2"}, nil
+		},
+		schema: map[string]interface{}{
+			"description": "tool 2",
+			"parameters":  map[string]interface{}{},
+		},
+	}
+
+	args1JSON, _ := json.Marshal(map[string]interface{}{})
+	args2JSON, _ := json.Marshal(map[string]interface{}{})
+
+	callCount := 0
+	mockClient := &MockClient{
+		ChatFunc: func(req *llm.ChatRequest) (*llm.ChatResponse, error) {
+			callCount++
+			if callCount == 1 {
+				return createChatResponse(llm.ChatMessage{
+					Role: "assistant",
+					ToolCalls: []llm.ToolCall{
+						{
+							ID:   "call_1",
+							Type: "function",
+							Function: llm.ToolCallFunction{
+								Name:      "tool1",
+								Arguments: args1JSON,
+							},
+						},
+						{
+							ID:   "call_2",
+							Type: "function",
+							Function: llm.ToolCallFunction{
+								Name:      "tool2",
+								Arguments: args2JSON,
+							},
+						},
+					},
+				}), nil
+			}
+			return createChatResponse(llm.ChatMessage{Content: "Done with both"}), nil
+		},
+	}
+
+	a := NewAgent(mockClient, "test-model", []tools.Tool{tool1, tool2}, false, 5, false)
+
+	resp, _, err := a.Run("Use both")
+	if err != nil {
+		t.Fatalf("Expected no error, got %v", err)
+	}
+
+	if resp != "Done with both" {
+		t.Errorf("Expected 'Done with both', got %q", resp)
+	}
+
+	if callCount != 2 {
+		t.Errorf("Expected 2 LLM calls, got %d", callCount)
+	}
+
+	// History should have: User, Assistant (2 tool calls), Tool (res1), Tool (res2), Assistant (final)
+	if len(a.History) != 5 {
+		t.Errorf("Expected 5 history messages, got %d", len(a.History))
+	}
+}
+
+func TestAgent_Run_ToolCallID_Is_Correctly_Set(t *testing.T) {
+	toolName := "test_tool"
+	tcID := "call_abc_123"
+	argsJSON, _ := json.Marshal(map[string]interface{}{})
+
+	mockTool := &MockTool{
+		name: toolName,
+		execute: func(args map[string]interface{}) (tools.ToolResult, error) {
+			return tools.ToolResult{FullResult: "tool success"}, nil
+		},
+		schema: map[string]interface{}{
+			"description": "a test tool",
+			"parameters":  map[string]interface{}{},
+		},
+	}
+
+	callCount := 0
+	mockClient := &MockClient{
+		ChatFunc: func(req *llm.ChatRequest) (*llm.ChatResponse, error) {
+			callCount++
+			if callCount == 1 {
+				return createChatResponse(llm.ChatMessage{
+					Role: "assistant",
+					ToolCalls: []llm.ToolCall{
+						{
+							ID:   tcID,
+							Type: "function",
+							Function: llm.ToolCallFunction{
+								Name:      toolName,
+								Arguments: argsJSON,
+							},
+						},
+					},
+				}), nil
+			}
+			return createChatResponse(llm.ChatMessage{Content: "Done!"}), nil
+		},
+	}
+
+	a := NewAgent(mockClient, "test-model", []tools.Tool{mockTool}, false, 5, false)
+
+	_, _, err := a.Run("Use tool")
+	if err != nil {
+		t.Fatalf("Expected no error, got %v", err)
+	}
+
+	// Check for the tool message in history
+	foundCorrectID := false
+	for _, msg := range a.History {
+		if msg.Role == "tool" && msg.ToolCallID == tcID {
+			foundCorrectID = true
 			break
 		}
 	}
 
-	if !foundToolMessage {
-		t.Error("did not find any message with role 'tool' in history")
+	if !foundCorrectID {
+		t.Error("Did not find a tool message with the correct ToolCallID in history")
 	}
 }
-

@@ -5,6 +5,7 @@ import (
 	_ "embed"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"time"
@@ -172,7 +173,7 @@ func main() {
 	}, inputHandler.IsMultiline)
 
 	if err != nil {
-		if errors.Is(err, commands.ErrQuit) {
+		if errors.Is(err, commands.ErrQuit) || errors.Is(err, io.EOF) {
 			os.Exit(0)
 		}
 		fmt.Fprintf(os.Stderr, "\nError: %v\n", err)

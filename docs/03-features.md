@@ -4,6 +4,8 @@ Plano de funcionalidades desejáveis para o Zé! Esse plano deve ser implementad
 
 ## Feature 1: Executar comandos no shell com !
 
+Status: Done
+
 A primeira feature desejada é executar comandos com o !, como "!ls",
 e ver o stdout/stderr deste comando na sessão do zé.
 
