@@ -2,7 +2,11 @@
 set -e
 set -x
 
-go install ./cmd/ze || exit 1
+if [ -z "${SKIP_REBUILD}" ]; then
+    go install ./cmd/ze || exit 1
+else
+    echo "[INFO] Skipping rebuild, using installed version of 'ze'"
+fi
 
 export LOG_FILE="./tmp/ze-$(date +%Y%m%d-%H%M%S).log"
 script --command "ze $*" $LOG_FILE
