@@ -33,6 +33,8 @@ Analise o conteúdo do arquivo listado.
 
 ## Feature 2: Tool WebFetch para baixar da web
 
+Status: Done
+
 Essa tool é o mínimo até termos WebSearch via MCPs.
 
 Essa será a tool que pode ser usada pelo modelo quando o usuário passa

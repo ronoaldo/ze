@@ -137,6 +137,7 @@ func main() {
 		&tools.EditFileTool{},
 		&tools.GoDocTool{},
 		&tools.GoTestTool{},
+		&tools.WebFetchTool{},
 		&tools.DiffTool{},
 		&tools.GitCommitTool{},
 	}
