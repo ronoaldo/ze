@@ -8,10 +8,10 @@ Zé é um agente de programação autônomo de alto desempenho construído em Go
 - **Loop de Agente Autônomo:** Um loop de raciocínio de várias etapas que permite ao agente planejar, executar ferramentas, observar resultados e iterar até que uma tarefa seja concluída.
 - **Consciente de Contexto:** Integra automaticamente o contexto de `~/.agents/AGENTS.md` (global) e `./AGENTS.md` (local) em seu prompt de sistema.
 - **Gerenciamento Inteligente de Modelos:** Detecta e seleciona automaticamente o melhor modelo disponível em seu servidor, com uma forte preferência por **Gemma 4**.
-- **TUI Rica:** Uma interface de terminal minimalista com suporte para:
-    - **Visibilidade de Pensamento:** Veja o processo de raciocínio do agente usando a flag `--show-thinking`.
-    - **Modo Verbose:** Saída detalhada para execuções de ferramentas e comunicação bruta de API.
-- **Ferramentas de Desenvolvedor Integradas:** Equipado com um conjunto de ferramentas para manipulação de arquivos, inspeção de código Go (`go_doc`), testes (`go_test`) e diffing.
+- **TUI Rica e Markdown:** Uma interface de terminal que suporta renderização de Markdown (tabelas, listas, formatação) para respostas do agente mais legíveis.
+- **Modo Headless:** Detecção automática de ambientes não interativos (pipes/redirecionamentos), alternando para um prompt de texto simples (`prompt > `) sem banners ou cores.
+- **Visibilidade de Pensamento:** Veja o processo de raciocínio do agente usando a flag `--show-thinking`.
+- **Modo Verbose:** Saída detalhada para execuções de ferramentas e comunicação bruta de API.
 
 ## 🛠 Instalação
 
@@ -41,6 +41,10 @@ goreleaser build --snapshot --clean
    ./ze --url http://localhost:8084
    ```
 
+### Interação Avançada
+- **Comandos de Shell:** Execute qualquer comando do shell prefixando-o com `!` (ex: `!ls`). A saída do comando é automaticamente adicionada ao contexto da conversa.
+- **Entrada Multilinha:** Use `/multiline` para inserir ou colar longos blocos de texto. Digite `/send` em uma nova linha para finalizar e enviar.
+
 ## ⚙️ Configuração
 
 ### Flags de Linha de Comando
@@ -48,7 +52,7 @@ goreleaser build --snapshot --clean
 | Flag | Variável de Ambiente | Padrão | Descrição |
 |---|---|---|---|
 | `--url` | `LLAMA_URL` | `http://localhost:8084` | URL do servidor Llama |
-| `--model` | - | | Especificar nome do modelo |
+| `--model` | - | | Especificar o nome do modelo |
 | `--timeout` | `LLAMA_TIMEOUT` | `5m` | Duração do timeout |
 | `--verbose` | - | `false` | Habilita saída detalhada das ferramentas |
 | `--verbose-api-calls` | - | `false` | Log de requisições/respostas brutas da API |
@@ -62,6 +66,7 @@ goreleaser build --snapshot --clean
 Dentro da TUI, você pode usar os seguintes comandos:
 
 - `/help`: Mostra os comandos disponíveis.
+- `/multiline`: Inicia uma sessão de entrada multilinha.
 - `/quit` ou `/exit`: Sai da sessão.
 
 ## 🛠 Capacidades do Agente (Ferramentas)
@@ -69,13 +74,15 @@ Dentro da TUI, você pode usar os seguintes comandos:
 O agente pode interagir com seu ambiente usando as seguintes ferramentas:
 
 - `read_file`: Lê o conteúdo de um arquivo.
-- `write_file`: Escreve ou sobrescreve um arquivo.
+- `write_file`: Escreve ou sobrescreve um arquivo (reporta o total de bytes escritos).
 - `list_files`: Lista arquivos em um diretório.
 - `remove_file`: Deleta um arquivo.
-- `edit_file`: Realiza edições precisas e atômicas em arquivos.
-- `go_doc`: Inspeciona a documentação Go para pacotes e funções.
-- `go_test`: Executa testes Go no diretório atual.
-- `diff`: Mostra as mudanças entre arquivos ou no estado atual.
+- `edit_file`: Realiza edições precisas e atômicas em arquivos (mostra um resumo das alterações).
+- `go_doc`: Inspeciona a documentação Go (`go_doc('all')` para inspeção completa da API).
+- `go_test`: Executa testes Go no diretório atual (exibe a saída de erro em caso de falha).
+- `diff`: Mostra estatísticas detalhadas de mudanças (staged, unstaged e arquivos não rastreados).
+- `web_fetch`: Busca conteúdo de URLs da web (HTML, JSON, Markdown, etc.).
+- `git_commit`: Realiza commits (requer confirmação explícita do usuário).
 
 ## 🛠 Solução de Problemas
 

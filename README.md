@@ -8,10 +8,10 @@ Zé is a high-performance, autonomous programming agent built in pure Go. It is 
 - **Autonomous Agent Loop:** A multi-step reasoning loop that allows the agent to plan, execute tools, observe results, and iterate until a task is complete.
 - **Context-Aware:** Automatically integrates context from `~/.agents/AGENTS.md` (global) and `./AGENTS.md` (local) into its system prompt.
 - **Smart Model Management:** Automatically detects and selects the best available model on your server, with a strong preference for **Gemma 4**.
-- **Rich TUI:** A minimal terminal interface with support for:
-    - **Thinking Visibility:** View the agent's reasoning process using the `--show-thinking` flag.
-    - **Verbose Mode:** Detailed output for tool executions and raw API communication.
-- **Built-in Developer Tools:** Equipped with a suite of tools for file manipulation, Go code inspection (`go_doc`), testing (`go_test`), and diffing.
+- **Rich TUI & Markdown:** A terminal interface that supports Markdown rendering (tables, lists, formatting) for readable agent responses.
+- **Headless Mode:** Automatic detection of non-interactive environments (pipes/redirects), switching to a simplified, plain-text prompt (`prompt > `) without banners or colors.
+- **Thinking Visibility:** View the agent's reasoning process using the `--show-thinking` flag.
+- **Verbose Mode:** Detailed output for tool executions and raw API communication.
 
 ## 🛠 Installation
 
@@ -41,6 +41,10 @@ goreleaser build --snapshot --clean
    ./ze --url http://localhost:8084
    ```
 
+### Advanced Interaction
+- **Shell Commands:** Run any shell command by prefixing it with `!` (e.g., `!ls`). The command's output is automatically added to the conversation context.
+- **Multiline Input:** Use `/multiline` to enter or paste long blocks of text. Type `/send` on a new line to finish and submit.
+
 ## ⚙️ Configuration
 
 ### Command Line Flags
@@ -62,6 +66,7 @@ goreleaser build --snapshot --clean
 While inside the TUI, you can use the following commands:
 
 - `/help`: Show available commands.
+- `/multiline`: Start a multi-line input session.
 - `/quit` or `/exit`: Exit the session.
 
 ## 🛠 Agent Capabilities (Tools)
@@ -69,13 +74,15 @@ While inside the TUI, you can use the following commands:
 The agent can interact with your environment using the following tools:
 
 - `read_file`: Read the content of a file.
-- `write_file`: Write or overwrite a file.
+- `write_file`: Write or overwrite a file (reports total bytes written).
 - `list_files`: List files in a directory.
 - `remove_file`: Delete a file.
-- `edit_file`: Perform precise, atomic edits on files.
-- `go_doc`: Inspect Go documentation for packages and functions.
-- `go_test`: Run Go tests in the current directory.
-- `diff`: Show changes between files or current state.
+- `edit_file`: Perform precise, atomic edits on files (shows change summary).
+- `go_doc`: Inspect Go documentation (`go_doc('all')` for full API inspection).
+- `go_test`: Run Go tests (displays error output on failure).
+- `diff`: Show detailed statistics of changes (staged, unstaged, and untracked).
+- `web_fetch`: Fetch content from web URLs (HTML, JSON, Markdown, etc.).
+- `git_commit`: Commit changes (requires explicit user confirmation).
 
 ## 🛠 Troubleshooting
 
