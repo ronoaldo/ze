@@ -18,7 +18,14 @@ func (t *GoDocTool) Execute(args map[string]interface{}) (ToolResult, error) {
 		return ToolResult{}, fmt.Errorf("missing 'package' argument")
 	}
 
-	cmd := exec.Command("go", "doc", a.Package)
+	var cmd *exec.Cmd
+	if a.Package == "all" {
+		// Feature 4: Run go list and go doc -all for each package
+		cmd = exec.Command("sh", "-c", "go list ./... | while read pkg ; do go doc -all $pkg ; done")
+	} else {
+		cmd = exec.Command("go", "doc", a.Package)
+	}
+
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return ToolResult{}, fmt.Errorf("failed to run go doc: %w (output: %s)", err, string(output))
@@ -32,7 +39,7 @@ func (t *GoDocTool) Execute(args map[string]interface{}) (ToolResult, error) {
 func (t *GoDocTool) JSONSchema() map[string]interface{} {
 	return map[string]interface{}{
 		"name":        "go_doc",
-		"description": "Retrieves Go documentation for a package using 'go doc'.",
+		"description": "Retrieves Go documentation for a package using 'go doc'. Use 'all' as package to get all local package docs.",
 		"parameters": map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{

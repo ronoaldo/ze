@@ -45,6 +45,8 @@ HTML, JSON, Markdown, TXT, CSV serão aceitos.
 
 ## Feature 3: Renderizar Markdown da resposta no terminal
 
+Status: Done
+
 Renderizador básico para suportar:
 * Tabelas
 * Listas
@@ -60,7 +62,11 @@ Melhorar a tool para rodar algo equivalente a:
 
 Desta forma conseguimos ter um "full api" da implementação atual.
 
+Status: Done
+
 ## Feature 5: Nova ferramenta: git_commit
+
+Status: Done
 
 Esta ferramenta irá receber a mensagem do commit. Ela deve ter na
 descrição de forma bem explícita que só pode ser feita DEPOIS da
