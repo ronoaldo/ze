@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 set -e
-set -x
 
 if [ -z "${SKIP_REBUILD}" ]; then
     go install ./cmd/ze || exit 1
