@@ -33,24 +33,28 @@ type winsize struct {
 
 // Palette defines the colors used in the TUI.
 type Palette struct {
-	Reset  string
-	Bold   string
-	Dim    string
-	Cyan   string
-	Green  string
-	Red    string
-	Yellow string
+	Reset     string
+	Bold      string
+	Dim       string
+	Cyan      string
+	Green     string
+	Red       string
+	Yellow    string
+	Italic    string
+	Underline string
 }
 
 func DefaultPalette() Palette {
 	return Palette{
-		Reset:  "\x1b[0m",
-		Bold:   "\x1b[1m",
-		Dim:    "\x1b[2m",
-		Cyan:   "\x1b[36m",
-		Green:  "\x1b[32m",
-		Red:    "\x1b[31m",
-		Yellow: "\x1b[33m",
+		Reset:     "\x1b[0m",
+		Bold:      "\x1b[1m",
+		Dim:       "\x1b[2m",
+		Cyan:      "\x1b[36m",
+		Green:     "\x1b[32m",
+		Red:       "\x1b[31m",
+		Yellow:    "\x1b[33m",
+		Italic:    "\x1b[3m",
+		Underline: "\x1b[4m",
 	}
 }
 
@@ -63,6 +67,8 @@ func NoColorPalette() Palette {
 		Green:  "",
 		Red:    "",
 		Yellow: "",
+		Italic: "",
+		Underline: "",
 	}
 }
 
@@ -126,7 +132,7 @@ func (t *TUI) Run(handler func(msg string) (string, agent.AgentStats, error), is
 			if strings.HasPrefix(response, "* Multiline input enabled") {
 				fmt.Fprintf(t.w, "%s%s%s\n", t.palette.Dim, response, t.palette.Reset)
 			} else {
-				fmt.Fprintf(t.w, "\n%s\n\n", response)
+				fmt.Fprintf(t.w, "\n%s\n\n", RenderMarkdown(response, t.markdownStyle()))
 				// Only report stats if they are not empty
 				if stats.TotalTokens > 0 || stats.Duration > 0 {
 					t.ReportStats(stats)
@@ -269,7 +275,16 @@ func (t *TUI) ReportReasoning(content string, tokens int) {
 	term := terms[t.rng.Intn(len(terms))]
 	fmt.Fprintf(t.w, "* %sPensou %d tokens de %s...%s\n", t.palette.Yellow, tokens, term, t.palette.Reset)
 	if t.showThinking {
-		fmt.Fprintf(t.w, "%s%s%s\n", t.palette.Dim, content, t.palette.Reset)
+		fmt.Fprintf(t.w, "%s%s%s\n", t.palette.Dim, RenderMarkdown(content, t.markdownStyle()), t.palette.Reset)
+	}
+}
+
+func (t *TUI) markdownStyle() Style {
+	return Style{
+		Bold:      t.palette.Bold,
+		Italic:    t.palette.Italic,
+		Underline: t.palette.Underline,
+		Reset:     t.palette.Reset,
 	}
 }
 
