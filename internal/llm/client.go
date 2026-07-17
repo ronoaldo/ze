@@ -95,6 +95,12 @@ type Usage struct {
 	TotalTokens      int `json:"total_tokens"`
 }
 
+// Timings represents the performance metrics from llama-server.
+type Timings struct {
+	PromptPerSecond     float64 `json:"prompt_per_second"`
+	PredictedPerSecond float64 `json:"predicted_per_second"`
+}
+
 // ChatRequest is the structure for llama-server chat completion request (OpenAI compatible).
 type ChatRequest struct {
 	Model       string           `json:"model"`
@@ -110,7 +116,8 @@ type ChatResponse struct {
 		Message ChatMessage `json:"message"`
 		Finish  string      `json:"finish_reason"`
 	} `json:"choices"`
-	Usage Usage `json:"usage"`
+	Usage   Usage   `json:"usage"`
+	Timings Timings `json:"timings"`
 }
 
 // Client defines the interface for interacting with an LLM server.

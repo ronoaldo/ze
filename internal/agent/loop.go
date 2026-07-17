@@ -19,12 +19,16 @@ type AgentStats struct {
 	CompTokens    int
 	TotalTokens   int
 	TokensPerSec  float64
+	PromptPerSec  float64
+	CompPerSec    float64
+	Status        string
 }
 
 // AgentReporter defines an interface for reporting agent activity to the UI.
 type AgentReporter interface {
 	ReportToolExecution(toolName string, args string, res tools.ToolResult, err error)
 	ReportReasoning(content string, tokens int)
+	ReportStatus(stats AgentStats)
 }
 
 // Agent represents the core programming agent.
@@ -112,11 +116,13 @@ func (a *Agent) Run(userInput string) (string, AgentStats, error) {
 	a.History = append(a.History, llm.ChatMessage{Role: "user", Content: finalInput})
 
 	// 4. Multi-step loop
+	var lastResp *llm.ChatResponse
 	for i := 0; i < a.MaxIteration; i++ {
 		req := a.prepareRequest()
 
 		chatStartTime := time.Now()
 		resp, err := a.Client.Chat(req)
+		lastResp = resp
 		lastChatDuration = time.Since(chatStartTime)
 
 		if err != nil {
@@ -144,6 +150,17 @@ func (a *Agent) Run(userInput string) (string, AgentStats, error) {
 
 		// Check for tool calls
 		if len(assistantMsg.ToolCalls) > 0 {
+			// Report status before executing tools to show progress/stats
+			if a.Reporter != nil {
+				a.Reporter.ReportStatus(AgentStats{
+					PromptTokens: resp.Usage.PromptTokens,
+					CompTokens:   resp.Usage.CompletionTokens,
+					TotalTokens:  resp.Usage.TotalTokens,
+					PromptPerSec: resp.Timings.PromptPerSecond,
+					CompPerSec:   resp.Timings.PredictedPerSecond,
+					Status:       "OK",
+				})
+			}
 
 			toolResults, err := a.handleToolCalls(assistantMsg.ToolCalls)
 			if err != nil {
@@ -167,6 +184,12 @@ func (a *Agent) Run(userInput string) (string, AgentStats, error) {
 			TotalTokens:  lastPromptTokens + lastCompTokens,
 			TokensPerSec: tokensPerSec,
 		}
+
+		if lastResp != nil {
+			stats.PromptPerSec = lastResp.Timings.PromptPerSecond
+			stats.CompPerSec = lastResp.Timings.PredictedPerSecond
+		}
+
 		return assistantMsg.Content, stats, nil
 	}
 

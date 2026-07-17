@@ -72,6 +72,7 @@ type TUI struct {
 	palette         Palette
 	rng             *rand.Rand
 	isHeadless      bool
+	messagePrefix   string
 }
 
 func isUTF8Locale() bool {
@@ -85,7 +86,6 @@ func isUTF8Locale() bool {
 		strings.Contains(lang, "UTF8") || strings.Contains(lcAll, "UTF8")
 }
 
-// Run starts the TUI event loop.
 func (t *TUI) Run(handler func(msg string) (string, agent.AgentStats, error), isMultiline func() bool) error {
 	for {
 		// Print prompt
@@ -122,7 +122,7 @@ func (t *TUI) Run(handler func(msg string) (string, agent.AgentStats, error), is
 			if strings.HasPrefix(response, "* Multiline input enabled") {
 				fmt.Fprintf(t.w, "%s%s%s\n", t.palette.Dim, response, t.palette.Reset)
 			} else {
-				fmt.Fprintf(t.w, "\n%s\n\n", RenderMarkdown(response, t.markdownStyle()))
+				fmt.Fprintf(t.w, "\n%s%s\n\n", t.messagePrefix, RenderMarkdown(response, t.markdownStyle()))
 				// Only report stats if they are not empty
 				if stats.TotalTokens > 0 || stats.Duration > 0 {
 					t.ReportStats(stats)
@@ -200,17 +200,29 @@ func (t *TUI) ReportToolExecution(toolName string, args string, res tools.ToolRe
 	}
 }
 
-// ReportStats displays performance statistics with a visual delimiter.
-func (t *TUI) ReportStats(stats agent.AgentStats) {
-	line := fmt.Sprintf("Stats: %v | P: %d C: %d | Speed: %.2f t/s", 
-		stats.Duration.Round(time.Millisecond), 
+// ReportStatus displays the current status and performance metrics.
+func (t *TUI) ReportStatus(stats agent.AgentStats) {
+	status := stats.Status
+	if status == "" {
+		status = "OK"
+	}
+
+	line := fmt.Sprintf("Status: %s | %dt (In: %d, Out: %d) | %.0f t/s (%.0f t/s prefill)",
+		status,
+		stats.TotalTokens,
 		stats.PromptTokens,
 		stats.CompTokens,
-		stats.TokensPerSec,
+		stats.CompPerSec,
+		stats.PromptPerSec,
 	)
-	
-	// Print line with dimmed color (grayish/faded style)
-	fmt.Fprintf(t.w, "%s%s%s\n", t.palette.Dim, line, t.palette.Reset)
+
+	// Print line with dimmed color
+	fmt.Fprintf(t.w, "%s%s%s%s\n", t.palette.Dim, t.messagePrefix, line, t.palette.Reset)
+}
+
+// ReportStats displays performance statistics with a visual delimiter.
+func (t *TUI) ReportStats(stats agent.AgentStats) {
+	t.ReportStatus(stats)
 }
 
 // New creates a new TUI instance.
@@ -238,6 +250,7 @@ func New(verbose bool, showThinking bool, noColor bool) *TUI {
 		palette:         palette,
 		rng:             rand.New(rand.NewSource(time.Now().UnixNano())),
 		isHeadless:      !isTTY,
+		messagePrefix:   "* ",
 	}
 }
 
