@@ -10,9 +10,7 @@ import (
 	"os"
 	"regexp"
 	"strings"
-	"syscall"
 	"time"
-	"unsafe"
 
 	"github.com/ronoaldo/ze/internal/agent"
 	"github.com/ronoaldo/ze/internal/tools"
@@ -22,14 +20,6 @@ var (
 	reInserts = regexp.MustCompile(`(\d+)\s+insertions?\(?\+?\)?`)
 	reDeletes = regexp.MustCompile(`(\d+)\s+deletions?\(?\-?\)?`)
 )
-
-// winsize represents the terminal window size.
-type winsize struct {
-	Row    uint16
-	Col    uint16
-	Xpixel uint16
-	Ypixel uint16
-}
 
 // Palette defines the colors used in the TUI.
 type Palette struct {
@@ -293,10 +283,6 @@ func (t *TUI) IsHeadless() bool {
 }
 
 func (t *TUI) getTerminalWidth() int {
-	var ws winsize
-	_, _, err := syscall.Syscall(syscall.SYS_IOCTL, uintptr(os.Stdout.Fd()), syscall.TIOCGWINSZ, uintptr(unsafe.Pointer(&ws)))
-	if err != 0 {
-		return 80
-	}
-	return int(ws.Col)
+	w, _ := getTerminalSize()
+	return w
 }

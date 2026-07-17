@@ -8,5 +8,7 @@ else
     echo "[INFO] Skipping rebuild, using installed version of 'ze'"
 fi
 
+ZE_ARGS="${ZE_ARGS:- --model unsloth/gemma-4-26B --verbose-api-calls }"
+
 export LOG_FILE="./tmp/ze-$(date +%Y%m%d-%H%M%S).log"
-script --command "ze $*" $LOG_FILE
+script --command "ze ${ZE_ARGS}" $LOG_FILE
