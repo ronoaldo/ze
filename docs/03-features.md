@@ -56,6 +56,8 @@ Renderizador básico para suportar:
 
 ## Feature 4: Tool de "ver a doc completa" go_doc('all')
 
+Status: Done
+
 Melhorar a tool para rodar algo equivalente a:
 
     go list ./... | while read pkg ; do go doc -all $pkg ; done
