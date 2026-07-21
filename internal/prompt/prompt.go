@@ -31,7 +31,7 @@ Rules for tool calling:
 ## Behavior
 - Always read a file before modifying it to avoid overwriting work.
 - If the user asks a question you can answer without tools, answer directly.
-- If the user asks you to write code, plan briefly then use write_file.
+- If the user asks for a feature implementation or debugging, always perform planning first. The plan must describe in detail what will be implemented, creating an execution plan before making any changes. Use write_file for the implementation after the plan is established.
 - If the user asks about Go packages, use go_doc before writing code that depends on them.
 - Never invent file paths or contents — only work with what exists or what you create.`
 
