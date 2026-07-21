@@ -83,7 +83,8 @@ func isUTF8Locale() bool {
 		strings.Contains(lcCtype, "UTF-8") ||
 		strings.Contains(lang, "UTF8") || strings.Contains(lcAll, "UTF8") ||
 		strings.Contains(lcCtype, "UTF8") ||
-		strings.Contains(lang, "UTF8") || strings.Contains(lcAll, "UTF8")
+		strings.Contains(lang, "UTF8") ||
+		strings.Contains(lcAll, "UTF8")
 }
 
 func (t *TUI) Run(handler func(msg string) (string, agent.AgentStats, error), isMultiline func() bool) error {
@@ -122,7 +123,7 @@ func (t *TUI) Run(handler func(msg string) (string, agent.AgentStats, error), is
 			if strings.HasPrefix(response, "* Multiline input enabled") {
 				fmt.Fprintf(t.w, "%s%s%s\n", t.palette.Dim, response, t.palette.Reset)
 			} else {
-				fmt.Fprintf(t.w, "\n%s%s\n\n", t.messagePrefix, RenderMarkdown(response, t.markdownStyle()))
+				fmt.Fprintf(t.w, "\n%s\n\n", RenderMarkdown(response, t.markdownStyle()))
 				// Only report stats if they are not empty
 				if stats.TotalTokens > 0 || stats.Duration > 0 {
 					t.ReportStats(stats)
@@ -173,18 +174,14 @@ func (t *TUI) summarizeArgs(toolName string, argsJSON string) string {
 
 func (t *TUI) ReportToolExecution(toolName string, args string, res tools.ToolResult, err error) {
 	summary := t.summarizeArgs(toolName, args)
-
-	if err != nil {
-		// Erro de Sistema
-		fmt.Fprintf(t.w, "* %s%s%s('%s') %s%s[ERROR] %v%s\n",
-			t.palette.Bold, t.palette.Cyan, toolName, t.palette.Reset, summary,
-			t.palette.Red, err.Error(), t.palette.Reset)
-		return
-	}
-
-	// Build the summary part: tool_name('summary')
 	header := fmt.Sprintf("%s%s%s%s('%s')",
 		t.palette.Bold, t.palette.Cyan, toolName, t.palette.Reset, summary)
+
+	if err != nil {
+		fmt.Fprintf(t.w, "* %s\n", header)
+		fmt.Fprintf(t.w, "* %s%s%s\n", t.palette.Red, "[ERROR] ", err.Error(), t.palette.Reset)
+		return
+	}
 
 	if res.Summary != "" {
 		fmt.Fprintf(t.w, "* %s %s%s%s\n", header, t.palette.Green, res.Summary, t.palette.Reset)

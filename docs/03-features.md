@@ -74,3 +74,30 @@ Esta ferramenta irá receber a mensagem do commit. Ela deve ter na
 descrição de forma bem explícita que só pode ser feita DEPOIS da
 aprovação explícita do usuário para fazer o commit. Ela não deve
 ser chamada apenas para gerar a mensagem. Sempre confirmar com o usuário antes.
+
+## Feature 6: Histórico de sessão persistente
+
+Status: Not implemented
+
+Criar um UUID ao iniciar uma sessão, que ficará salva em $ZE_HOME/sessions,
+que por padrão é $HOME/.config/ze.
+
+Persistir o histórico de conversa em um arquivo JSON. Atualizar o arquivo a cada
+iteração (a cada input de usuário, cada turno novo da AI).
+
+A ideia é salvar em um formato que pode ser lido diretamente para o histórico do Zé:
+ao iniciar com --session=UUID, recarregar o histórico e no próximo turno do usuário
+todo o contexto carregado será então enviado.
+
+## Feature 7: Logs de execução em arquivo
+
+Status: Not implemented
+
+Gravar em um arquivo de logs, por padrão $ZE_HOME/logs, ZE_HOME=$HOME/.config/ze
+por padrão.
+
+Os logs devem detalhar a execução e ter o req/resp de cada chamada de API logados
+também para que possamos debugar a execução.
+
+Na primeira versão, é suficiente ter a implementação persistindo somente o req/resp
+e os timings.

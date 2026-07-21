@@ -161,8 +161,13 @@ func (c *LlamaServerClient) Chat(req *ChatRequest) (*ChatResponse, error) {
 	}
 
 	if c.VerboseAPICalls {
-		fmt.Fprintf(os.Stderr, "\n--- [API REQUEST] ---\n%s\n", string(data))
-		fmt.Fprintf(os.Stderr, "--- [API RESPONSE] ---\n%s\n--------------------\n", string(body))
+		fmt.Fprintf(os.Stderr, "* [DEBUG] Req => %s\n", string(data))
+		var compactResp bytes.Buffer
+		if err := json.Compact(&compactResp, body); err == nil {
+			fmt.Fprintf(os.Stderr, "* [DEBUG] Resp => %s\n", compactResp.String())
+		} else {
+			fmt.Fprintf(os.Stderr, "* [DEBUG] Resp => %s\n", string(body))
+		}
 	}
 
 	if resp.StatusCode != http.StatusOK {
