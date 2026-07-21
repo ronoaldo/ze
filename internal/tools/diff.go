@@ -159,7 +159,7 @@ func (t *DiffTool) JSONSchema() map[string]interface{} {
 		"name":        "diff",
 		"description": "Shows all changes in the project (modified, staged, and unstaged files).",
 		"parameters": map[string]interface{}{
-			"type": "object",
+			"type":       "object",
 			"properties": map[string]interface{}{},
 		},
 	}

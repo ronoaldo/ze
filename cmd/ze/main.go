@@ -1,8 +1,8 @@
 package main
 
 import (
-	"errors"
 	_ "embed"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -44,7 +44,7 @@ type Config struct {
 	VerboseAPICalls bool
 	MaxIteration    int
 	ShowThinking    bool
-	NoColor        bool
+	NoColor         bool
 }
 
 // ParseConfig parses command line arguments and environment variables.
@@ -92,7 +92,7 @@ func ParseConfig(args []string, env map[string]string) (*Config, error) {
 		VerboseAPICalls: *verboseAPICallsFlag,
 		MaxIteration:    *maxIterFlag,
 		ShowThinking:    *showThinkingFlag,
-		NoColor:        *noColorFlag,
+		NoColor:         *noColorFlag,
 	}, nil
 }
 
@@ -194,7 +194,7 @@ func printNeofetch(modelName string, cfg *Config) {
 	}
 
 	fmt.Fprintln(os.Stderr, "")
-	
+
 	// Clean up logo data: split into lines. We don't use TrimSpace on the whole block
 	// because it would destroy the intended indentation of the ASCII art.
 	logoLines := strings.Split(logoEmbed, "\n")
@@ -203,7 +203,7 @@ func printNeofetch(modelName string, cfg *Config) {
 	if len(logoLines) > 0 && logoLines[len(logoLines)-1] == "" {
 		logoLines = logoLines[:len(logoLines)-1]
 	}
-	
+
 	// We iterate based on the maximum number of elements to ensure everything is printed
 	maxLines := len(logoLines)
 	if len(info) > maxLines {

@@ -12,7 +12,7 @@ func TestParseConfig(t *testing.T) {
 		env         map[string]string
 		wantURL     string
 		wantTimeout time.Duration
-		wantVersion  bool
+		wantVersion bool
 		wantErr     bool
 	}{
 		{
@@ -21,7 +21,7 @@ func TestParseConfig(t *testing.T) {
 			env:         map[string]string{},
 			wantURL:     "http://localhost:1234",
 			wantTimeout: 5 * time.Minute,
-			wantVersion:  false,
+			wantVersion: false,
 			wantErr:     false,
 		},
 		{
@@ -30,7 +30,7 @@ func TestParseConfig(t *testing.T) {
 			env:         map[string]string{"LLAMA_URL": "http://env-url:8080", "LLAMA_TIMEOUT": "30s"},
 			wantURL:     "http://env-url:8080",
 			wantTimeout: 30 * time.Second,
-			wantVersion:  false,
+			wantVersion: false,
 			wantErr:     false,
 		},
 		{
@@ -39,7 +39,7 @@ func TestParseConfig(t *testing.T) {
 			env:         map[string]string{"LLAMA_URL": "http://env-url:8080", "LLAMA_TIMEOUT": "30s"},
 			wantURL:     "http://flag-url:9000",
 			wantTimeout: 10 * time.Second,
-			wantVersion:  false,
+			wantVersion: false,
 			wantErr:     false,
 		},
 		{
@@ -48,7 +48,7 @@ func TestParseConfig(t *testing.T) {
 			env:         map[string]string{},
 			wantURL:     "http://equals-url:7000",
 			wantTimeout: 5 * time.Minute,
-			wantVersion:  false,
+			wantVersion: false,
 			wantErr:     false,
 		},
 		{
@@ -57,7 +57,7 @@ func TestParseConfig(t *testing.T) {
 			env:         map[string]string{},
 			wantURL:     "http://localhost:1234",
 			wantTimeout: 5 * time.Minute,
-			wantVersion:  true,
+			wantVersion: true,
 			wantErr:     false,
 		},
 		{
@@ -66,7 +66,7 @@ func TestParseConfig(t *testing.T) {
 			env:         map[string]string{},
 			wantURL:     "http://localhost:1234",
 			wantTimeout: 5 * time.Minute,
-			wantVersion:  true,
+			wantVersion: true,
 			wantErr:     false,
 		},
 		{
@@ -75,7 +75,7 @@ func TestParseConfig(t *testing.T) {
 			env:         map[string]string{},
 			wantURL:     "http://localhost:1234",
 			wantTimeout: 0,
-			wantVersion:  false,
+			wantVersion: false,
 			wantErr:     true,
 		},
 	}

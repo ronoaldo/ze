@@ -14,11 +14,11 @@ type coord struct {
 }
 
 type consoleScreenBufferInfo struct {
-	Size            coord
-	CursorPosition  coord
-	Attributes      uint32
+	Size           coord
+	CursorPosition coord
+	Attributes     uint32
 	Window         coord
-	CursorCurrent   coord
+	CursorCurrent  coord
 }
 
 var (

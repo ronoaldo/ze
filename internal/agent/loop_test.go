@@ -11,7 +11,7 @@ import (
 
 // MockClient simulates LLM responses for testing.
 type MockClient struct {
-	ChatFunc        func(req *llm.ChatRequest) (*llm.ChatResponse, error)
+	ChatFunc       func(req *llm.ChatRequest) (*llm.ChatResponse, error)
 	ListModelsFunc func() ([]llm.ModelInfo, error)
 }
 

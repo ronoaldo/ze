@@ -20,17 +20,17 @@ func TestEditFileTool(t *testing.T) {
 		errMessage string
 	}{
 		{
-			name:     "Simple replace",
-			initial:  "Hello, world! This is a test.",
-			edits:    []Edit{{OldString: "world", NewString: "universe"}},
-			expected: "Hello, universe! This is a test.",
+			name:      "Simple replace",
+			initial:   "Hello, world! This is a test.",
+			edits:     []Edit{{OldString: "world", NewString: "universe"}},
+			expected:  "Hello, universe! This is a test.",
 			expectErr: false,
 		},
 		{
-			name:     "Multiple replace with replaceAll",
-			initial:  "test test test",
-			edits:    []Edit{{OldString: "test", NewString: "success", ReplaceAll: true}},
-			expected: "success success success",
+			name:      "Multiple replace with replaceAll",
+			initial:   "test test test",
+			edits:     []Edit{{OldString: "test", NewString: "success", ReplaceAll: true}},
+			expected:  "success success success",
 			expectErr: false,
 		},
 		{

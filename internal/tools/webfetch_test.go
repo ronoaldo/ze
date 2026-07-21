@@ -12,12 +12,12 @@ func TestWebFetchTool_Execute(t *testing.T) {
 	tool := &WebFetchTool{}
 
 	tests := []struct {
-		name           string
-		handler        func(w http.ResponseWriter, r *http.Request)
-		args           map[string]interface{}
-		wantSummary    string
-		wantErr        bool
-		checkContent   func(t *testing.T, content string)
+		name         string
+		handler      func(w http.ResponseWriter, r *http.Request)
+		args         map[string]interface{}
+		wantSummary  string
+		wantErr      bool
+		checkContent func(t *testing.T, content string)
 	}{
 		{
 			name: "Success - Plain Text",
@@ -25,9 +25,9 @@ func TestWebFetchTool_Execute(t *testing.T) {
 				w.Header().Set("Content-Type", "text/plain")
 				fmt.Fprint(w, "hello world")
 			},
-			args: map[string]interface{}{"url": ""},
+			args:        map[string]interface{}{"url": ""},
 			wantSummary: "Fetched content from",
-			wantErr: false,
+			wantErr:     false,
 			checkContent: func(t *testing.T, content string) {
 				if content != "hello world" {
 					t.Errorf("expected 'hello world', got '%s'", content)
@@ -40,9 +40,9 @@ func TestWebFetchTool_Execute(t *testing.T) {
 				w.Header().Set("Content-Type", "application/json")
 				fmt.Fprint(w, `{"key": "value"}`)
 			},
-			args: map[string]interface{}{"url": ""},
+			args:        map[string]interface{}{"url": ""},
 			wantSummary: "Fetched content from",
-			wantErr: false,
+			wantErr:     false,
 			checkContent: func(t *testing.T, content string) {
 				if content != `{"key": "value"}` {
 					t.Errorf("expected '{\"key\": \"value\"}', got '%s'", content)
@@ -55,9 +55,9 @@ func TestWebFetchTool_Execute(t *testing.T) {
 				w.Header().Set("Content-Type", "text/html")
 				fmt.Fprint(w, "<html><body><h1 >Hello</h1><p >World</p></body></html>")
 			},
-			args: map[string]interface{}{"url": ""},
+			args:        map[string]interface{}{"url": ""},
 			wantSummary: "Fetched content from",
-			wantErr: false,
+			wantErr:     false,
 			checkContent: func(t *testing.T, content string) {
 				// Due to simple regex replacement with spaces, we expect some whitespace
 				// but the core words should be there.
@@ -71,7 +71,7 @@ func TestWebFetchTool_Execute(t *testing.T) {
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusOK)
 			},
-			args: map[string]interface{}{"url": " ://invalid"},
+			args:    map[string]interface{}{"url": " ://invalid"},
 			wantErr: true,
 		},
 		{
@@ -79,7 +79,7 @@ func TestWebFetchTool_Execute(t *testing.T) {
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusNotFound)
 			},
-			args: map[string]interface{}{"url": ""},
+			args:    map[string]interface{}{"url": ""},
 			wantErr: true,
 		},
 	}

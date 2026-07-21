@@ -1,21 +1,21 @@
 package tui
 
 import (
+	"bufio"
 	"bytes"
 	"errors"
-	"testing"
-	"bufio"
 	"github.com/ronoaldo/ze/internal/agent"
+	"testing"
 )
 
 func TestRun_ShellBehavior_CookedMode(t *testing.T) {
 	// Simulating: User presses ENTER (empty line), then types "hi" and ENTER.
 	// The terminal (Cooked Mode) handles the empty line and only passes the command.
 	input := []byte("\nhi\n")
-	
+
 	r := bytes.NewReader(input)
 	w := &bytes.Buffer{}
-	
+
 	tui := &TUI{
 		w:      w,
 		r:      r,
@@ -36,7 +36,7 @@ func TestRun_ShellBehavior_CookedMode(t *testing.T) {
 	}
 
 	_ = tui.Run(handler, func() bool { return false })
-	
+
 	if !handlerCalled {
 		t.Fatal("Handler was never called")
 	}
@@ -63,7 +63,7 @@ func TestRun_ShellBehavior_StandardInput(t *testing.T) {
 	}
 
 	_ = tui.Run(handler, func() bool { return false })
-	
+
 	if !handlerCalled {
 		t.Fatal("Handler was never called")
 	}

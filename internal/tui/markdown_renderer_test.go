@@ -53,7 +53,7 @@ func TestRenderMarkdown(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got := RenderMarkdown(tt.input, style)
 			gotLines := strings.Split(got, "\n")
-			
+
 			if len(gotLines) != len(tt.expected) {
 				t.Fatalf("RenderMarkdown() got %d lines, want %d. \nGot: %q\nWant: %q", len(gotLines), len(tt.expected), gotLines, tt.expected)
 			}

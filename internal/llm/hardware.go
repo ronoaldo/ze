@@ -9,9 +9,9 @@ import (
 
 // ModelConfig represents the configuration parameters for a specific model size.
 type ModelConfig struct {
-	Name           string
-	MinVRAMMB      int64
-	RequiresGPU    bool
+	Name        string
+	MinVRAMMB   int64
+	RequiresGPU bool
 }
 
 var (
@@ -44,7 +44,7 @@ func DetectHardware() *HardwareResources {
 	return res
 }
 
-func isLinux() bool { return runtime.GOOS == "linux" }
+func isLinux() bool  { return runtime.GOOS == "linux" }
 func isDarwin() bool { return runtime.GOOS == "darwin" }
 
 // detectGPUMemory tries to find GPU memory using nvidia-smi if available (common on Linux).
@@ -76,14 +76,14 @@ func SelectBestModel(res *HardwareResources) string {
 		if !m.RequiresGPU && res.CPUCores >= 4 {
 			selected = m.Name // Keep track of the best non-GPU model found so far
 		} else if !m.RequiresGPU && selected == "" {
-            // Fallback to smallest if nothing else fits
-            selected = m.Name
-        }
+			// Fallback to smallest if nothing else fits
+			selected = m.Name
+		}
 	}
 
-    if selected == "" {
-        return Gemma4Models[len(Gemma4Models)-1].Name // Default to smallest
-    }
+	if selected == "" {
+		return Gemma4Models[len(Gemma4Models)-1].Name // Default to smallest
+	}
 
 	return selected
 }

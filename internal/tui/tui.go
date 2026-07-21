@@ -50,29 +50,29 @@ func DefaultPalette() Palette {
 
 func NoColorPalette() Palette {
 	return Palette{
-		Reset:  "",
-		Bold:   "",
-		Dim:    "",
-		Cyan:   "",
-		Green:  "",
-		Red:    "",
-		Yellow: "",
-		Italic: "",
+		Reset:     "",
+		Bold:      "",
+		Dim:       "",
+		Cyan:      "",
+		Green:     "",
+		Red:       "",
+		Yellow:    "",
+		Italic:    "",
 		Underline: "",
 	}
 }
 
 // TUI is the terminal user interface.
 type TUI struct {
-	w               io.Writer
-	r               io.Reader
-	reader          *bufio.Reader
-	verbose         bool
-	showThinking    bool
-	palette         Palette
-	rng             *rand.Rand
-	isHeadless      bool
-	messagePrefix   string
+	w             io.Writer
+	r             io.Reader
+	reader        *bufio.Reader
+	verbose       bool
+	showThinking  bool
+	palette       Palette
+	rng           *rand.Rand
+	isHeadless    bool
+	messagePrefix string
 }
 
 func isUTF8Locale() bool {
@@ -148,7 +148,7 @@ func (t *TUI) readLine() (string, error) {
 // summarizeArgs creates a human-readable summary of tool arguments.
 func (t *TUI) summarizeArgs(toolName string, argsJSON string) string {
 	var args map[string]interface{}
-	
+
 	err := json.Unmarshal([]byte(argsJSON), &args)
 	if err != nil {
 		return argsJSON
@@ -170,16 +170,13 @@ func (t *TUI) summarizeArgs(toolName string, argsJSON string) string {
 	return "{}"
 }
 
-
-
 func (t *TUI) ReportToolExecution(toolName string, args string, res tools.ToolResult, err error) {
 	summary := t.summarizeArgs(toolName, args)
 	header := fmt.Sprintf("%s%s%s%s('%s')",
 		t.palette.Bold, t.palette.Cyan, toolName, t.palette.Reset, summary)
 
 	if err != nil {
-		fmt.Fprintf(t.w, "* %s\n", header)
-		fmt.Fprintf(t.w, "* %s%s%s\n", t.palette.Red, "[ERROR] ", err.Error(), t.palette.Reset)
+		fmt.Fprintf(t.w, "* %s %s[ERROR] %s%s", header, t.palette.Red, err.Error(), t.palette.Reset)
 		return
 	}
 
@@ -239,15 +236,15 @@ func New(verbose bool, showThinking bool, noColor bool) *TUI {
 	}
 
 	return &TUI{
-		w:               os.Stdout,
-		r:               os.Stdin,
-		reader:          bufio.NewReader(os.Stdin),
-		verbose:         verbose,
-		showThinking:    showThinking,
-		palette:         palette,
-		rng:             rand.New(rand.NewSource(time.Now().UnixNano())),
-		isHeadless:      !isTTY,
-		messagePrefix:   "* ",
+		w:             os.Stdout,
+		r:             os.Stdin,
+		reader:        bufio.NewReader(os.Stdin),
+		verbose:       verbose,
+		showThinking:  showThinking,
+		palette:       palette,
+		rng:           rand.New(rand.NewSource(time.Now().UnixNano())),
+		isHeadless:    !isTTY,
+		messagePrefix: "* ",
 	}
 }
 

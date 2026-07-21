@@ -36,10 +36,10 @@ func Hello() string {
 	}
 
 	tool := &GoDocTool{}
-	
+
 	// We need to run the test from the parent directory (the one containing mypkg)
 	// and we will pass the relative path to the package.
-	
+
 	oldWd, _ := os.Getwd()
 	os.Chdir(tmpDir)
 	defer os.Chdir(oldWd)
@@ -102,7 +102,7 @@ func TestFail(t *testing.T) {
 	// We need to run the tool from the project directory or change Dir in Execute.
 	// Currently GoTestTool.Execute uses exec.Command("go", "test", "-count=1", "./...").
 	// This works if we change CWD.
-	
+
 	oldWd, _ := os.Getwd()
 	os.Chdir(projDir)
 	defer os.Chdir(oldWd)

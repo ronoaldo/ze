@@ -14,14 +14,14 @@ import (
 
 // AgentStats contains performance metrics for an agent run.
 type AgentStats struct {
-	Duration      time.Duration
-	PromptTokens  int
-	CompTokens    int
-	TotalTokens   int
-	TokensPerSec  float64
-	PromptPerSec  float64
-	CompPerSec    float64
-	Status        string
+	Duration     time.Duration
+	PromptTokens int
+	CompTokens   int
+	TotalTokens  int
+	TokensPerSec float64
+	PromptPerSec float64
+	CompPerSec   float64
+	Status       string
 }
 
 // AgentReporter defines an interface for reporting agent activity to the UI.
@@ -34,16 +34,16 @@ type AgentReporter interface {
 // Agent represents the core programming agent.
 type Agent struct {
 	Client               llm.Client
-	Model               string // The selected model name
-	Tools               map[string]tools.Tool
-	ToolDefs            []llm.ToolDefinition
-	History             []llm.ChatMessage
-	Reporter            AgentReporter // Optional reporter for UI updates
-	Verbose             bool
-	MaxIteration        int
-	ShowThinking        bool
-	shellExecutor       *ShellExecutor
-	pendingCommandString  string
+	Model                string // The selected model name
+	Tools                map[string]tools.Tool
+	ToolDefs             []llm.ToolDefinition
+	History              []llm.ChatMessage
+	Reporter             AgentReporter // Optional reporter for UI updates
+	Verbose              bool
+	MaxIteration         int
+	ShowThinking         bool
+	shellExecutor        *ShellExecutor
+	pendingCommandString string
 	pendingCommandOutput string
 }
 
@@ -52,10 +52,10 @@ func NewAgent(client llm.Client, model string, availableTools []tools.Tool, verb
 	toolDefs := make([]llm.ToolDefinition, 0, len(availableTools))
 	for _, t := range availableTools {
 		toolMap[t.Name()] = t
-		
+
 		schema := t.JSONSchema()
 		schemaBytes, _ := json.Marshal(schema["parameters"])
-		
+
 		toolDefs = append(toolDefs, llm.ToolDefinition{
 			Type: "function",
 			Function: llm.FunctionDef{
@@ -65,21 +65,21 @@ func NewAgent(client llm.Client, model string, availableTools []tools.Tool, verb
 			},
 		})
 	}
-	
+
 	if maxIter <= 0 {
 		maxIter = 20
 	}
 
 	return &Agent{
-		Client:               client,
-		Model:               model,
-		Tools:               toolMap,
-		ToolDefs:            toolDefs,
-		History:             []llm.ChatMessage{},
-		Verbose:             verbose,
-		MaxIteration:        maxIter,
-		ShowThinking:        showThinking,
-		shellExecutor:       &ShellExecutor{},
+		Client:        client,
+		Model:         model,
+		Tools:         toolMap,
+		ToolDefs:      toolDefs,
+		History:       []llm.ChatMessage{},
+		Verbose:       verbose,
+		MaxIteration:  maxIter,
+		ShowThinking:  showThinking,
+		shellExecutor: &ShellExecutor{},
 	}
 }
 

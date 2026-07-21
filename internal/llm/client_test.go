@@ -7,11 +7,11 @@ import (
 
 func TestToolCallFunction_UnmarshalJSON(t *testing.T) {
 	tests := []struct {
-		name          string
-		input         string
-		expectedName  string
-		expectedArgs  map[string]interface{}
-		wantErr       bool
+		name         string
+		input        string
+		expectedName string
+		expectedArgs map[string]interface{}
+		wantErr      bool
 	}{
 		{
 			name:         "Standard JSON arguments",

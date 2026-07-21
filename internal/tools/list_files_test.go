@@ -9,7 +9,7 @@ import (
 
 func TestListFilesTool(t *testing.T) {
 	tmpDir := t.TempDir()
-	
+
 	// Create some files/dirs
 	os.Mkdir(filepath.Join(tmpDir, "subdir"), 0755)
 	os.WriteFile(filepath.Join(tmpDir, "file1.txt"), []byte("content"), 0644)

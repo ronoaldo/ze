@@ -35,13 +35,12 @@ builds:
 
 archives:
   - id: ze-archive
-    builds:
-      - ze
+    ids: [ ze ]
     name_template: >-
       {{ .ProjectName }}_{{ .Version }}_{{ title .Os }}_{{ .Arch }}
     format_overrides:
       - goos: windows
-        format: zip
+        formats: ["zip"]
     files:
       - README.md
       - LICENSE

@@ -27,7 +27,7 @@ func RenderMarkdown(input string, style Style) string {
 
 	for _, line := range lines {
 		trimmed := strings.TrimSpace(line)
-		
+
 		// Detect table block
 		if strings.HasPrefix(trimmed, "|") {
 			inTable = true
@@ -92,12 +92,12 @@ func renderTable(lines []string, style Style) []string {
 		if !strings.HasPrefix(trimmed, "|") {
 			continue
 		}
-		
+
 		content := trimmed[1:]
 		if strings.HasSuffix(content, "|") {
 			content = content[:len(content)-1]
 		}
-		
+
 		parts := strings.Split(content, "|")
 		row := []string{}
 		for _, p := range parts {
@@ -135,13 +135,13 @@ func renderTable(lines []string, style Style) []string {
 			if i < len(row) {
 				cell = row[i]
 			}
-			
+
 			count := utf8.RuneCountInString(cell)
 			padding := colWidths[i] - count
 			if padding < 0 {
 				padding = 0
 			}
-			
+
 			sb.WriteString(" ")
 			sb.WriteString(cell)
 			sb.WriteString(strings.Repeat(" ", padding))

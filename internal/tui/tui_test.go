@@ -87,13 +87,13 @@ func TestReportToolExecution(t *testing.T) {
 		tui.w = buf
 
 		res := tools.ToolResult{
-			Summary:   "[+1/-1]",
+			Summary:    "[+1/-1]",
 			FullResult: "some content",
 		}
 		tui.ReportToolExecution("read_file", `{"path": "foo.go"}`, res, nil)
-		
+
 		// Expected: * [Bold][Cyan]read_file[Reset]('foo.go') [Green][+1/-1][Reset]
-		// Since we can't easily predict all ANSI codes perfectly if they change, 
+		// Since we can't easily predict all ANSI codes perfectly if they change,
 		// let's check for key components.
 		output := buf.String()
 		if !strings.Contains(output, "read_file") {
@@ -124,11 +124,11 @@ func TestReportToolExecution(t *testing.T) {
 		tui.w = buf
 
 		res := tools.ToolResult{
-			Summary:   "[+1/-1]",
+			Summary:    "[+1/-1]",
 			FullResult: "some content",
 		}
 		tui.ReportToolExecution("read_file", `{"path": "foo.go"}`, res, nil)
-		
+
 		if !strings.Contains(buf.String(), "some content") {
 			t.Errorf("Expected full result in output, got %q", buf.String())
 		}
