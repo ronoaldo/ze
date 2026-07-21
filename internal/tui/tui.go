@@ -176,7 +176,7 @@ func (t *TUI) ReportToolExecution(toolName string, args string, res tools.ToolRe
 		t.palette.Bold, t.palette.Cyan, toolName, t.palette.Reset, summary)
 
 	if err != nil {
-		fmt.Fprintf(t.w, "* %s %s[ERROR] %s%s", header, t.palette.Red, err.Error(), t.palette.Reset)
+		fmt.Fprintf(t.w, "* %s %s[ERROR] %s%s\n", header, t.palette.Red, err.Error(), t.palette.Reset)
 		return
 	}
 
