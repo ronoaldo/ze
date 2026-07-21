@@ -4,12 +4,17 @@ import (
 	"errors"
 	"strings"
 	"testing"
+
+	"github.com/ronoaldo/ze/internal/agent"
 )
 
 func TestExecuteCommand(t *testing.T) {
 	// Reset Registry for testing
 	Registry = make(map[string]Command)
 	RegisterCommands()
+
+	// Dummy agent for testing
+	dummyAgent := &agent.Agent{}
 
 	tests := []struct {
 		name           string
@@ -45,7 +50,7 @@ func TestExecuteCommand(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := ExecuteCommand(tt.input)
+			got, err := ExecuteCommand(dummyAgent, tt.input)
 
 			if tt.expectedErr != nil {
 				if err == nil || !strings.Contains(err.Error(), tt.expectedErr.Error()) {

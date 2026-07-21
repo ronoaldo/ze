@@ -83,6 +83,20 @@ func NewAgent(client llm.Client, model string, availableTools []tools.Tool, verb
 	}
 }
 
+// ListModels retrieves available models from the llama-server.
+func (a *Agent) ListModels() ([]llm.ModelInfo, error) {
+	return a.Client.ListModels()
+}
+
+// SetModel updates the current model of the agent.
+func (a *Agent) SetModel(modelName string) error {
+	if modelName == "" {
+		return errors.New("model name cannot be empty")
+	}
+	a.Model = modelName
+	return nil
+}
+
 // Run processes a user message and returns the agent's response, stats, or an error.
 func (a *Agent) Run(userInput string) (string, AgentStats, error) {
 	startTime := time.Now()

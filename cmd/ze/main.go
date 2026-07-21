@@ -171,7 +171,7 @@ func main() {
 
 	// Run TUI — wraps the agent's Run method
 	err = t.Run(func(msg string) (string, agent.AgentStats, error) {
-		return inputHandler.Process(msg)
+		return inputHandler.Process(zeAgent, msg)
 	}, inputHandler.IsMultiline)
 
 	if err != nil {

@@ -9,7 +9,8 @@ import (
 )
 
 func TestInputHandler_NormalCommands(t *testing.T) {
-	cmdExecutor := func(input string) (string, error) {
+	dummyAgent := &agent.Agent{}
+	cmdExecutor := func(a *agent.Agent, input string) (string, error) {
 		if input == "/help" {
 			return "help content", nil
 		}
@@ -25,7 +26,7 @@ func TestInputHandler_NormalCommands(t *testing.T) {
 	h := NewInputHandler(cmdExecutor, agentExecutor)
 
 	// Test /help
-	resp, _, err := h.Process("/help")
+	resp, _, err := h.Process(dummyAgent, "/help")
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -34,13 +35,13 @@ func TestInputHandler_NormalCommands(t *testing.T) {
 	}
 
 	// Test /quit
-	_, _, err = h.Process("/quit")
+	_, _, err = h.Process(dummyAgent, "/quit")
 	if !errors.Is(err, commands.ErrQuit) {
 		t.Errorf("expected ErrQuit, got %v", err)
 	}
 
 	// Test unknown command (starts with /)
-	resp, _, err = h.Process("/unknown")
+	resp, _, err = h.Process(dummyAgent, "/unknown")
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -50,7 +51,8 @@ func TestInputHandler_NormalCommands(t *testing.T) {
 }
 
 func TestInputHandler_AgentMessages(t *testing.T) {
-	cmdExecutor := func(input string) (string, error) {
+	dummyAgent := &agent.Agent{}
+	cmdExecutor := func(a *agent.Agent, input string) (string, error) {
 		return "", errors.New("unknown command")
 	}
 	agentExecutor := func(input string) (string, agent.AgentStats, error) {
@@ -60,7 +62,7 @@ func TestInputHandler_AgentMessages(t *testing.T) {
 	h := NewInputHandler(cmdExecutor, agentExecutor)
 
 	// Test normal message
-	resp, _, err := h.Process("hello agent")
+	resp, _, err := h.Process(dummyAgent, "hello agent")
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -70,7 +72,8 @@ func TestInputHandler_AgentMessages(t *testing.T) {
 }
 
 func TestInputHandler_MultilineActivation(t *testing.T) {
-	cmdExecutor := func(input string) (string, error) {
+	dummyAgent := &agent.Agent{}
+	cmdExecutor := func(a *agent.Agent, input string) (string, error) {
 		return "", nil
 	}
 	agentExecutor := func(input string) (string, agent.AgentStats, error) {
@@ -80,7 +83,7 @@ func TestInputHandler_MultilineActivation(t *testing.T) {
 	h := NewInputHandler(cmdExecutor, agentExecutor)
 
 	// Test activation
-	resp, _, err := h.Process("/multiline")
+	resp, _, err := h.Process(dummyAgent, "/multiline")
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -93,7 +96,8 @@ func TestInputHandler_MultilineActivation(t *testing.T) {
 }
 
 func TestInputHandler_MultilineAccumulation(t *testing.T) {
-	cmdExecutor := func(input string) (string, error) {
+	dummyAgent := &agent.Agent{}
+	cmdExecutor := func(a *agent.Agent, input string) (string, error) {
 		return "", nil
 	}
 	agentExecutor := func(input string) (string, agent.AgentStats, error) {
@@ -105,7 +109,7 @@ func TestInputHandler_MultilineAccumulation(t *testing.T) {
 	h.isMultiline = true
 
 	// Line 1
-	resp, _, err := h.Process("line 1")
+	resp, _, err := h.Process(dummyAgent, "line 1")
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -114,7 +118,7 @@ func TestInputHandler_MultilineAccumulation(t *testing.T) {
 	}
 
 	// Line 2
-	resp, _, err = h.Process("line 2")
+	resp, _, err = h.Process(dummyAgent, "line 2")
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -128,7 +132,8 @@ func TestInputHandler_MultilineAccumulation(t *testing.T) {
 }
 
 func TestInputHandler_MultilineWithEmptyLines(t *testing.T) {
-	cmdExecutor := func(input string) (string, error) {
+	dummyAgent := &agent.Agent{}
+	cmdExecutor := func(a *agent.Agent, input string) (string, error) {
 		return "", nil
 	}
 	agentExecutor := func(input string) (string, agent.AgentStats, error) {
@@ -142,14 +147,14 @@ func TestInputHandler_MultilineWithEmptyLines(t *testing.T) {
 	h.isMultiline = true
 
 	// Line 1
-	h.Process("line 1")
+	h.Process(dummyAgent, "line 1")
 	// Empty Line
-	h.Process("")
+	h.Process(dummyAgent, "")
 	// Line 2
-	h.Process("line 2")
+	h.Process(dummyAgent, "line 2")
 
 	// Test /send
-	resp, _, err := h.Process("/send")
+	resp, _, err := h.Process(dummyAgent, "/send")
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -162,7 +167,8 @@ func TestInputHandler_MultilineWithEmptyLines(t *testing.T) {
 }
 
 func TestInputHandler_MultilineCompletion(t *testing.T) {
-	cmdExecutor := func(input string) (string, error) {
+	dummyAgent := &agent.Agent{}
+	cmdExecutor := func(a *agent.Agent, input string) (string, error) {
 		return "", nil
 	}
 	agentExecutor := func(input string) (string, agent.AgentStats, error) {
@@ -177,7 +183,7 @@ func TestInputHandler_MultilineCompletion(t *testing.T) {
 	h.multilineBuffer.WriteString("line 1\nline 2\n")
 
 	// Test /send
-	resp, _, err := h.Process("/send")
+	resp, _, err := h.Process(dummyAgent, "/send")
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}

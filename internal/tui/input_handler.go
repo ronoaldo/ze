@@ -17,13 +17,13 @@ type InputHandler struct {
 	isMultiline     bool
 	multilineBuffer strings.Builder
 	// Dependencies injected for testability.
-	commandExecutor func(string) (string, error)
+	commandExecutor func(a *agent.Agent, input string) (string, error)
 	agentExecutor   func(string) (string, agent.AgentStats, error)
 }
 
 // NewInputHandler creates a new instance of InputHandler.
 func NewInputHandler(
-	commandExecutor func(string) (string, error),
+	commandExecutor func(a *agent.Agent, input string) (string, error),
 	agentExecutor func(string) (string, agent.AgentStats, error),
 ) *InputHandler {
 	return &InputHandler{
@@ -39,7 +39,7 @@ func (h *InputHandler) IsMultiline() bool {
 
 // Process handles a single line of input and returns the response, stats, and error.
 // In multiline mode, it accumulates input until "/send" is received.
-func (h *InputHandler) Process(input string) (string, agent.AgentStats, error) {
+func (h *InputHandler) Process(a *agent.Agent, input string) (string, agent.AgentStats, error) {
 	if h.isMultiline {
 		// Modo Multiline
 		if strings.HasPrefix(input, "/send") {
@@ -72,7 +72,7 @@ func (h *InputHandler) Process(input string) (string, agent.AgentStats, error) {
 
 	// 4. Se for um comando (começa com /)
 	if strings.HasPrefix(input, "/") {
-		resp, err := h.commandExecutor(input)
+		resp, err := h.commandExecutor(a, input)
 		if err == nil {
 			return resp, agent.AgentStats{}, nil
 		}
