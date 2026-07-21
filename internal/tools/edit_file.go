@@ -85,7 +85,7 @@ func (t *EditFileTool) Execute(args map[string]interface{}) (ToolResult, error) 
 func (t *EditFileTool) JSONSchema() map[string]interface{} {
 	return map[string]interface{}{
 		"name":        "edit_file",
-		"description": "Edits a file with a list of string replacements.",
+		"description": "Edits a file with a list of string replacements. IMPORTANT: You must first provide the 'path' of the file, and then the 'edits' list. Ensure the file path is correct before specifying changes.",
 		"parameters": map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{

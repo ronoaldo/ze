@@ -37,7 +37,7 @@ func (t *FileWriteTool) Execute(args map[string]interface{}) (ToolResult, error)
 func (t *FileWriteTool) JSONSchema() map[string]interface{} {
 	return map[string]interface{}{
 		"name":        "write_file",
-		"description": "Writes content to a file, overwriting if it exists.",
+		"description": "Writes content to a file, overwriting if it exists. IMPORTANT: You must first provide the 'path' of the file, and then the full 'content' to be written. Ensure the file path is correct before providing the content.",
 		"parameters": map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
