@@ -140,6 +140,7 @@ func main() {
 		&tools.WebFetchTool{},
 		&tools.DiffTool{},
 		&tools.GitCommitTool{},
+		&tools.GitAddTool{},
 	}
 
 	// Create TUI
