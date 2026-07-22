@@ -23,6 +23,10 @@ func (t *FileWriteTool) Execute(args map[string]interface{}) (ToolResult, error)
 	}
 
 	data := []byte(a.Content)
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return ToolResult{}, fmt.Errorf("failed to create directory: %w", err)
+	}
 	err := os.WriteFile(path, data, 0644)
 	if err != nil {
 		return ToolResult{}, fmt.Errorf("failed to write file: %w", err)
@@ -37,7 +41,7 @@ func (t *FileWriteTool) Execute(args map[string]interface{}) (ToolResult, error)
 func (t *FileWriteTool) JSONSchema() map[string]interface{} {
 	return map[string]interface{}{
 		"name":        "write_file",
-		"description": "Writes content to a file, overwriting if it exists. IMPORTANT: You must first provide the 'path' of the file, and then the full 'content' to be written. Ensure the file path is correct before providing the content.",
+		"description": "Writes content to a file, overwriting if it exists. Creates any missing directories in the path. IMPORTANT: You must first provide the 'path' of the file, and then the full 'content' to be written. Ensure the file path is correct before providing the content.",
 		"parameters": map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
