@@ -42,6 +42,10 @@ go test ./... -v            # Run all tests
 - Do not use `git_commit` just to generate a message; use it to actually perform the commit.
 - Always verify the status with `git diff` or `git status` before committing to ensure all intended changes are staged.
 
+### `go_test` Protocol
+- **NEVER** call it with '.': the root folder has no go code.
+- Prefer to run all tests with './...' as argument since they run fast and this detects any compilation errors.
+
 ## Agent Capabilities (Tools)
 
 The agent can interact with the environment using the following tools:

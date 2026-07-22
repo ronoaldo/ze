@@ -39,6 +39,7 @@ type Config struct {
 	URL             string
 	Timeout         time.Duration
 	ModelName       string
+	SessionID       string
 	Version         bool
 	Verbose         bool
 	VerboseAPICalls bool
@@ -74,6 +75,7 @@ func ParseConfig(args []string, env map[string]string) (*Config, error) {
 	maxIterFlag := fs.Int("max-iterations", DefaultMaxIteration, "Maximum number of agent iterations")
 	showThinkingFlag := fs.Bool("show-thinking", false, "Show thinking process in the UI")
 	noColorFlag := fs.Bool("no-color", false, "Disable color output")
+	sessionFlag := fs.String("session", "", "Session ID to resume a conversation")
 	if err := fs.Parse(args); err != nil {
 		return nil, err
 	}
@@ -87,6 +89,7 @@ func ParseConfig(args []string, env map[string]string) (*Config, error) {
 		URL:             *urlFlag,
 		Timeout:         timeout,
 		ModelName:       *modelFlag,
+		SessionID:       *sessionFlag,
 		Version:         *versionFlag || *vShortFlag,
 		Verbose:         *verboseFlag,
 		VerboseAPICalls: *verboseAPICallsFlag,
@@ -146,9 +149,36 @@ func main() {
 	// Create TUI
 	t := tui.New(cfg.Verbose, cfg.ShowThinking, cfg.NoColor)
 
+	// Handle Session
+	sm, err := agent.NewSessionManager()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error initializing session manager: %v\n", err)
+		os.Exit(1)
+	}
+
+	sessionID, err := sm.GenerateSessionID()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error generating session ID: %v\n", err)
+		os.Exit(1)
+	}
+
+	if cfg.SessionID != "" {
+		sessionID = cfg.SessionID
+	}
+
 	// Create agent with full multi-step loop and reporter
-	zeAgent := agent.NewAgent(client, modelName, availableTools, cfg.Verbose, cfg.MaxIteration, cfg.ShowThinking)
+	zeAgent := agent.NewAgent(client, modelName, availableTools, cfg.Verbose, cfg.MaxIteration, cfg.ShowThinking, sessionID, sm)
 	zeAgent.Reporter = t
+
+	// Load existing history if session ID is provided
+	if cfg.SessionID != "" {
+		history, err := sm.LoadSession(cfg.SessionID)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: could not load session %s: %v\n", cfg.SessionID, err)
+		} else if history != nil {
+			zeAgent.History = history
+		}
+	}
 
 	// Register commands
 	commands.RegisterCommands()
@@ -167,7 +197,7 @@ func main() {
 
 	// Show model info using Neofetch-style banner
 	if !t.IsHeadless() {
-		printNeofetch(modelName, cfg)
+		printNeofetch(modelName, cfg, sessionID)
 	}
 
 	// Run TUI — wraps the agent's Run method
@@ -185,13 +215,14 @@ func main() {
 }
 
 // printNeofetch displays a neofetch-style banner with ASCII art from logo.txt and system info.
-func printNeofetch(modelName string, cfg *Config) {
+func printNeofetch(modelName string, cfg *Config, sessionID string) {
 	info := []string{
 		fmt.Sprintf("Model:       %s", modelName),
 		fmt.Sprintf("Server:      %s", cfg.URL),
 		fmt.Sprintf("Timeout:     %s", cfg.Timeout),
 		fmt.Sprintf("Verbose:     %v", cfg.Verbose),
 		fmt.Sprintf("API Verbose: %v", cfg.VerboseAPICalls),
+		fmt.Sprintf("Session:     %s", sessionID),
 	}
 
 	fmt.Fprintln(os.Stderr, "")

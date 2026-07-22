@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -45,9 +46,11 @@ type Agent struct {
 	shellExecutor        *ShellExecutor
 	pendingCommandString string
 	pendingCommandOutput string
+	SessionID            string
+	SessionManager       *SessionManager
 }
 
-func NewAgent(client llm.Client, model string, availableTools []tools.Tool, verbose bool, maxIter int, showThinking bool) *Agent {
+func NewAgent(client llm.Client, model string, availableTools []tools.Tool, verbose bool, maxIter int, showThinking bool, sessionID string, sessionManager *SessionManager) *Agent {
 	toolMap := make(map[string]tools.Tool)
 	toolDefs := make([]llm.ToolDefinition, 0, len(availableTools))
 	for _, t := range availableTools {
@@ -80,6 +83,8 @@ func NewAgent(client llm.Client, model string, availableTools []tools.Tool, verb
 		MaxIteration:  maxIter,
 		ShowThinking:  showThinking,
 		shellExecutor: &ShellExecutor{},
+		SessionID:     sessionID,
+		SessionManager: sessionManager,
 	}
 }
 
@@ -128,6 +133,7 @@ func (a *Agent) Run(userInput string) (string, AgentStats, error) {
 
 	// 3. Add user message to history
 	a.History = append(a.History, llm.ChatMessage{Role: "user", Content: finalInput})
+	a.saveSession()
 
 	// 4. Multi-step loop
 	var lastResp *llm.ChatResponse
@@ -153,6 +159,7 @@ func (a *Agent) Run(userInput string) (string, AgentStats, error) {
 
 		assistantMsg := resp.Choices[0].Message
 		a.History = append(a.History, assistantMsg)
+		a.saveSession()
 
 		// Report reasoning if present
 		if assistantMsg.ReasoningContent != "" {
@@ -181,6 +188,7 @@ func (a *Agent) Run(userInput string) (string, AgentStats, error) {
 				return "", AgentStats{}, err
 			}
 			a.History = append(a.History, toolResults...)
+			a.saveSession()
 			continue
 		}
 
@@ -204,10 +212,21 @@ func (a *Agent) Run(userInput string) (string, AgentStats, error) {
 			stats.CompPerSec = lastResp.Timings.PredictedPerSecond
 		}
 
+		// Final answer reached, save session before returning
+		a.saveSession()
 		return assistantMsg.Content, stats, nil
 	}
 
 	return "", AgentStats{}, fmt.Errorf("reached max iterations (%d) without a final answer", a.MaxIteration)
+}
+
+func (a *Agent) saveSession() {
+	if a.SessionManager != nil && a.SessionID != "" {
+		err := a.SessionManager.SaveSession(a.SessionID, a.History)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: failed to save session: %v\n", err)
+		}
+	}
 }
 
 func (a *Agent) prepareRequest() *llm.ChatRequest {

@@ -58,7 +58,7 @@ func TestAgent_Run_ShellCommand(t *testing.T) {
 		},
 	}
 
-	a := NewAgent(mockClient, "test-model", nil, false, 5, false)
+	a := NewAgent(mockClient, "test-model", nil, false, 5, false, "", nil)
 
 	// 1. Execute shell command
 	output, _, err := a.Run("!echo hello")
@@ -99,7 +99,7 @@ func TestAgent_Run_NoCommand(t *testing.T) {
 		},
 	}
 
-	a := NewAgent(mockClient, "test-model", nil, false, 5, false)
+	a := NewAgent(mockClient, "test-model", nil, false, 5, false, "", nil)
 
 	_, _, err := a.Run("Just a normal message")
 	if err != nil {
@@ -121,7 +121,7 @@ func TestAgent_Run_NoToolCall_ReturnsDirectAnswer(t *testing.T) {
 		},
 	}
 
-	a := NewAgent(mockClient, "test-model", nil, false, 5, false)
+	a := NewAgent(mockClient, "test-model", nil, false, 5, false, "", nil)
 
 	resp, _, err := a.Run("Say hi")
 	if err != nil {
@@ -176,7 +176,7 @@ func TestAgent_Run_WithToolCall_ReCallsLLM(t *testing.T) {
 		},
 	}
 
-	a := NewAgent(mockClient, "test-model", []tools.Tool{mockTool}, false, 5, false)
+	a := NewAgent(mockClient, "test-model", []tools.Tool{mockTool}, false, 5, false, "", nil)
 
 	resp, _, err := a.Run("Use the tool")
 	if err != nil {
@@ -229,7 +229,7 @@ func TestAgent_Run_MaxIterations_WhenOnlyToolCalls(t *testing.T) {
 	}
 
 	// Limit to 2 iterations
-	a := NewAgent(mockClient, "test-model", []tools.Tool{mockTool}, false, 2, false)
+	a := NewAgent(mockClient, "test-model", []tools.Tool{mockTool}, false, 2, false, "", nil)
 
 	_, _, err := a.Run("Keep using tool")
 	if err == nil {
@@ -297,7 +297,7 @@ func TestAgent_Run_MultipleToolCallsInOneResponse(t *testing.T) {
 		},
 	}
 
-	a := NewAgent(mockClient, "test-model", []tools.Tool{tool1, tool2}, false, 5, false)
+	a := NewAgent(mockClient, "test-model", []tools.Tool{tool1, tool2}, false, 5, false, "", nil)
 
 	resp, _, err := a.Run("Use both")
 	if err != nil {
@@ -357,7 +357,7 @@ func TestAgent_Run_ToolCallID_Is_Correctly_Set(t *testing.T) {
 		},
 	}
 
-	a := NewAgent(mockClient, "test-model", []tools.Tool{mockTool}, false, 5, false)
+	a := NewAgent(mockClient, "test-model", []tools.Tool{mockTool}, false, 5, false, "", nil)
 
 	_, _, err := a.Run("Use tool")
 	if err != nil {
