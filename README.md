@@ -82,6 +82,7 @@ The agent can interact with your environment using the following tools:
 - `go_test`: Run Go tests (displays error output on failure).
 - `diff`: Show detailed statistics of changes (staged, unstaged, and untracked).
 - `web_fetch`: Fetch content from web URLs (HTML, JSON, Markdown, etc.).
+- `git_add`: Add files to the git staging area (supports specific files or all changes via '.').
 - `git_commit`: Commit changes (requires explicit user confirmation).
 
 ## 🛠 Troubleshooting

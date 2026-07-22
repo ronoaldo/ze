@@ -5,7 +5,7 @@ Zé é um agente de programação autônomo de alto desempenho construído em Go
 ## 🚀 Principais Recursos
 
 - **Zero Dependências:** Construído inteiramente com a biblioteca padrão do Go. Sem excessos externos ou riscos de supply chain.
-- **Loop de Agente Autônomo:** Um loop de raciocínio de várias etapas que permite ao agente planejar, executar ferramentas, observar resultados e iterar até que uma tarefa seja concluída.
+- **Loop de Agente Autônomo:** Um loop de raciocínio de várias etapas que permite ao agente planear, executar ferramentas, observar resultados e iterar até que uma tarefa seja concluída.
 - **Consciente de Contexto:** Integra automaticamente o contexto de `~/.agents/AGENTS.md` (global) e `./AGENTS.md` (local) em seu prompt de sistema.
 - **Gerenciamento Inteligente de Modelos:** Detecta e seleciona automaticamente o melhor modelo disponível em seu servidor, com uma forte preferência por **Gemma 4**.
 - **TUI Rica e Markdown:** Uma interface de terminal que suporta renderização de Markdown (tabelas, listas, formatação) para respostas do agente mais legíveis.
@@ -82,6 +82,7 @@ O agente pode interagir com seu ambiente usando as seguintes ferramentas:
 - `go_test`: Executa testes Go no diretório atual (exibe a saída de erro em caso de falha).
 - `diff`: Mostra estatísticas detalhadas de mudanças (staged, unstaged e arquivos não rastreados).
 - `web_fetch`: Busca conteúdo de URLs da web (HTML, JSON, Markdown, etc.).
+- `git_add`: Adiciona arquivos à área de staging do git (suporta arquivos específicos ou todas as mudanças via '.').
 - `git_commit`: Realiza commits (requer confirmação explícita do usuário).
 
 ## 🛠 Solução de Problemas

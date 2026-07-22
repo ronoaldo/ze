@@ -18,22 +18,45 @@ go test ./... -v            # Run all tests
 ```
 
 ## Project Structure
-- `cmd/ze/`: Entry point.
-- `internal/agent/`: Core agent logic (loop, history).
-- `internal/commands/`: Slash commands handler.
-- `internal/llm/`: LLM client & hardware detection.
-- `internal/prompt/`: System prompts.
-- `internal/tools/`: Tool implementations (file operations, etc.).
-- `internal/tui/`: ANSI-based TUI.
+- `cmd/ze/`: Application entry point.
+- `internal/agent/`: Core agent logic, including the reasoning loop and shell interaction.
+- `internal/commands/`: Handles slash commands within the TUI.
+- `internal/llm/`: Manages communication with the LLM server (OpenAI-compatible API).
+- `internal/prompt/`: Contains system prompts and conversation management.
+- `internal/tools/`: Implementations of all agent capabilities (e.g., file, git, web, go).
+- `internal/tui/`: Terminal User Interface and ANSI-based rendering.
 
-## Tooling: `edit_file` Protocol (CRITICAL)
-When using `edit_file`, follow these rules strictly:
-1. **Exact Match:** `oldString` must be a bit-for-bit copy of the original content (including whitespace/tabs/newlines).
-2. **Uniqueness:** Use a sufficiently long `oldString` to ensure it is unique within the file.
-3. **Atomicity:** Perform small, focused edits. Avoid large blocks.
-4. **Ordering:** When providing multiple edits, order them from top to bottom.
-5. **Indentation:** Maintain original indentation (use Tabs if the file uses Tabs).
-6. **Pre-requisite:** Always call `read_file` before `edit_file`. If the change is >10 lines, use `write_file` instead.
+## Tooling Protocols (CRITICAL)
+
+### `edit_file` Protocol
+- Always call `read_file` before `edit_file`.
+- `oldString` must be a bit-for-bit copy of the original content (including whitespace/tabs/newlines).
+- Use a sufficiently long `oldString` to ensure it is unique within the file.
+- Perform small, focused edits. Avoid large blocks.
+- When providing multiple edits, order them from top to bottom.
+- Maintain original indentation (use Tabs if the file uses Tabs).
+- If the change is >10 lines, use `write_file` instead.
+
+### `git_commit` Protocol
+- **NEVER** call `git_commit` without explicit user approval of the commit message and the action.
+- Do not use `git_commit` just to generate a message; use it to actually perform the commit.
+- Always verify the status with `git diff` or `git status` before committing to ensure all intended changes are staged.
+
+## Agent Capabilities (Tools)
+
+The agent can interact with the environment using the following tools:
+
+- `read_file`: Read the content of a file.
+- `write_file`: Write or overwrite a file.
+- `list_files`: List files in a directory.
+- `remove_file`: Delete a file.
+- `edit_file`: Perform precise, atomic edits on files.
+- `go_doc`: Inspect Go documentation.
+- `go_test`: Run Go tests.
+- `diff`: Show detailed statistics of changes.
+- `web_fetch`: Fetch content from web URLs.
+- `git_add`: Add files to the git staging area.
+- `git_commit`: Commit staged changes (requires explicit user approval).
 
 ## Coding Standards
 - **Error Handling:** Always check `if err != nil`. Never ignore errors.
