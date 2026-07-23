@@ -185,8 +185,17 @@ func main() {
 	}
 
 	// Create agent with full multi-step loop and reporter
-	zeAgent := agent.NewAgent(client, modelName, availableTools, logger, cfg.Verbose, cfg.MaxIteration, cfg.ShowThinking, sessionID, sm)
-	zeAgent.Reporter = t
+	zeAgent := agent.NewAgent(
+		client,
+		modelName,
+		availableTools,
+		agent.WithLogger(logger),
+		agent.WithVerbose(cfg.Verbose),
+		agent.WithMaxIteration(cfg.MaxIteration),
+		agent.WithShowThinking(cfg.ShowThinking),
+		agent.WithSession(sessionID, sm),
+		agent.WithReporter(t),
+	)
 
 	// Load existing history if session ID is provided
 	if cfg.SessionID != "" {

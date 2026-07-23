@@ -51,7 +51,54 @@ type Agent struct {
 	SessionManager       *SessionManager
 }
 
-func NewAgent(client llm.Client, model string, availableTools []tools.Tool, logger Logger, verbose bool, maxIter int, showThinking bool, sessionID string, sessionManager *SessionManager) *Agent {
+// AgentOption defines a function signature for configuring an Agent.
+type AgentOption func(*Agent)
+
+// WithLogger sets the logger for the agent.
+func WithLogger(l Logger) AgentOption {
+	return func(a *Agent) {
+		a.Logger = l
+	}
+}
+
+// WithVerbose sets the verbosity level.
+func WithVerbose(v bool) AgentOption {
+	return func(a *Agent) {
+		a.Verbose = v
+	}
+}
+
+// WithMaxIteration sets the maximum number of agent iterations.
+func WithMaxIteration(i int) AgentOption {
+	return func(a *Agent) {
+		a.MaxIteration = i
+	}
+}
+
+// WithShowThinking sets whether to show the thinking process.
+func WithShowThinking(s bool) AgentOption {
+	return func(a *Agent) {
+		a.ShowThinking = s
+	}
+}
+
+// WithSession sets the session ID and manager.
+func WithSession(id string, sm *SessionManager) AgentOption {
+	return func(a *Agent) {
+		a.SessionID = id
+		a.SessionManager = sm
+	}
+}
+
+// WithReporter sets the reporter for UI updates.
+func WithReporter(r AgentReporter) AgentOption {
+	return func(a *Agent) {
+		a.Reporter = r
+	}
+}
+
+// NewAgent creates a new Agent instance with the provided core dependencies and optional configuration.
+func NewAgent(client llm.Client, model string, availableTools []tools.Tool, opts ...AgentOption) *Agent {
 	toolMap := make(map[string]tools.Tool)
 	toolDefs := make([]llm.ToolDefinition, 0, len(availableTools))
 	for _, t := range availableTools {
@@ -70,25 +117,24 @@ func NewAgent(client llm.Client, model string, availableTools []tools.Tool, logg
 		})
 	}
 
-	if maxIter <= 0 {
-		maxIter = 20
-	}
-
-	return &Agent{
+	agent := &Agent{
 		Client:        client,
 		Model:         model,
 		Tools:         toolMap,
 		ToolDefs:      toolDefs,
 		History:       []llm.ChatMessage{},
-		Reporter:      nil,
-		Logger:        logger,
-		Verbose:       verbose,
-		MaxIteration:  maxIter,
-		ShowThinking:  showThinking,
 		shellExecutor: &ShellExecutor{},
-		SessionID:     sessionID,
-		SessionManager: sessionManager,
 	}
+
+	// Default values
+	agent.MaxIteration = 20
+
+	// Apply functional options
+	for _, opt := range opts {
+		opt(agent)
+	}
+
+	return agent
 }
 
 // ListModels retrieves available models from the llama-server.

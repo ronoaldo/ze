@@ -36,6 +36,15 @@ func (m *MockTool) Execute(args map[string]interface{}) (tools.ToolResult, error
 }
 func (m *MockTool) JSONSchema() map[string]interface{} { return m.schema }
 
+// MockLogger is a dummy logger for testing.
+type MockLogger struct{}
+
+func (m *MockLogger) LogUserMessage(message string)                                     {}
+func (m *MockLogger) LogLLMRequest(req *llm.ChatRequest)                                  {}
+func (m *MockLogger) LogLLMResponse(resp *llm.ChatResponse)                                {}
+func (m *MockLogger) LogError(err error, context string)                                  {}
+func (m *MockLogger) LogToolCall(toolName string, args interface{}, result interface{}, err error) {}
+
 // Helper to create a ChatResponse with a single choice
 func createChatResponse(msg llm.ChatMessage) *llm.ChatResponse {
 	return &llm.ChatResponse{
@@ -58,7 +67,7 @@ func TestAgent_Run_ShellCommand(t *testing.T) {
 		},
 	}
 
-	a := NewAgent(mockClient, "test-model", nil, false, 5, false, "", nil)
+	a := NewAgent(mockClient, "test-model", nil, WithLogger(&MockLogger{}), WithMaxIteration(5))
 
 	// 1. Execute shell command
 	output, _, err := a.Run("!echo hello")
@@ -99,7 +108,7 @@ func TestAgent_Run_NoCommand(t *testing.T) {
 		},
 	}
 
-	a := NewAgent(mockClient, "test-model", nil, false, 5, false, "", nil)
+	a := NewAgent(mockClient, "test-model", nil, WithLogger(&MockLogger{}), WithMaxIteration(5))
 
 	_, _, err := a.Run("Just a normal message")
 	if err != nil {
@@ -121,7 +130,7 @@ func TestAgent_Run_NoToolCall_ReturnsDirectAnswer(t *testing.T) {
 		},
 	}
 
-	a := NewAgent(mockClient, "test-model", nil, false, 5, false, "", nil)
+	a := NewAgent(mockClient, "test-model", nil, WithLogger(&MockLogger{}), WithMaxIteration(5))
 
 	resp, _, err := a.Run("Say hi")
 	if err != nil {
@@ -176,7 +185,7 @@ func TestAgent_Run_WithToolCall_ReCallsLLM(t *testing.T) {
 		},
 	}
 
-	a := NewAgent(mockClient, "test-model", []tools.Tool{mockTool}, false, 5, false, "", nil)
+	a := NewAgent(mockClient, "test-model", []tools.Tool{mockTool}, WithLogger(&MockLogger{}), WithMaxIteration(5))
 
 	resp, _, err := a.Run("Use the tool")
 	if err != nil {
@@ -229,7 +238,7 @@ func TestAgent_Run_MaxIterations_WhenOnlyToolCalls(t *testing.T) {
 	}
 
 	// Limit to 2 iterations
-	a := NewAgent(mockClient, "test-model", []tools.Tool{mockTool}, false, 2, false, "", nil)
+	a := NewAgent(mockClient, "test-model", []tools.Tool{mockTool}, WithLogger(&MockLogger{}), WithMaxIteration(2))
 
 	_, _, err := a.Run("Keep using tool")
 	if err == nil {
@@ -297,7 +306,7 @@ func TestAgent_Run_MultipleToolCallsInOneResponse(t *testing.T) {
 		},
 	}
 
-	a := NewAgent(mockClient, "test-model", []tools.Tool{tool1, tool2}, false, 5, false, "", nil)
+	a := NewAgent(mockClient, "test-model", []tools.Tool{tool1, tool2}, WithLogger(&MockLogger{}), WithMaxIteration(5))
 
 	resp, _, err := a.Run("Use both")
 	if err != nil {
@@ -357,7 +366,7 @@ func TestAgent_Run_ToolCallID_Is_Correctly_Set(t *testing.T) {
 		},
 	}
 
-	a := NewAgent(mockClient, "test-model", []tools.Tool{mockTool}, false, 5, false, "", nil)
+	a := NewAgent(mockClient, "test-model", []tools.Tool{mockTool}, WithLogger(&MockLogger{}), WithMaxIteration(5))
 
 	_, _, err := a.Run("Use tool")
 	if err != nil {
