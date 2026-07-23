@@ -22,6 +22,7 @@ const (
 
 type LogEntry struct {
 	Timestamp string            `json:"timestamp"`
+	SessionID string            `json:"session_id,omitempty"`
 	Type      LogType           `json:"type"`
 	Content   string            `json:"content,omitempty"`
 	Metadata  map[string]string `json:"metadata,omitempty"`
@@ -31,6 +32,7 @@ type LogEntry struct {
 
 // Logger defines an interface for logging agent activity.
 type Logger interface {
+	SetSession(sessionID string) error
 	LogUserMessage(content string)
 	LogLLMRequest(req *llm.ChatRequest)
 	LogLLMResponse(resp *llm.ChatResponse)
@@ -40,7 +42,9 @@ type Logger interface {
 
 // FileLogger implements the Logger interface by writing to a file.
 type FileLogger struct {
-	file *os.File
+	baseDir   string
+	sessionID string
+	file      *os.File
 }
 
 // NewFileLogger creates a new FileLogger with the default directory.
@@ -50,27 +54,57 @@ func NewFileLogger(baseDir string) (*FileLogger, error) {
 		return nil, err
 	}
 
-	logFile := filepath.Join(logDir, "agent_execution.log")
-	f, err := os.OpenFile(logFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-		return nil, err
+	return &FileLogger{
+		baseDir: logDir,
+	}, nil
+}
+
+// SetSession switches the current log file to a session-specific file.
+func (l *FileLogger) SetSession(sessionID string) error {
+	// Close current file if open
+	if l.file != nil {
+		l.file.Close()
 	}
 
-	return &FileLogger{file: f}, nil
+	if sessionID == "" {
+		l.sessionID = ""
+		l.file = nil
+		return nil
+	}
+
+	l.sessionID = sessionID
+	logFile := filepath.Join(l.baseDir, fmt.Sprintf("session_%s.log", sessionID))
+	f, err := os.OpenFile(logFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return fmt.Errorf("failed to open session log file: %w", err)
+	}
+
+	l.file = f
+	return nil
 }
 
 // Close closes the log file.
 func (l *FileLogger) Close() error {
-	return l.file.Close()
+	if l.file != nil {
+		return l.file.Close()
+	}
+	return nil
 }
 
 func (l *FileLogger) write(entry LogEntry) {
 	entry.Timestamp = time.Now().Format(time.RFC3339)
+	entry.SessionID = l.sessionID
+
 	data, err := json.Marshal(entry)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to marshal log entry: %v\n", err)
 		return
 	}
+
+	if l.file == nil {
+		return
+	}
+
 	if _, err := l.file.Write(append(data, '\n')); err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to write log entry: %v\n", err)
 	}

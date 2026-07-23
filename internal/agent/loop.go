@@ -154,6 +154,13 @@ func (a *Agent) SetModel(modelName string) error {
 // Run processes a user message and returns the agent's response, stats, or an error.
 func (a *Agent) Run(userInput string) (string, AgentStats, error) {
 	startTime := time.Now()
+
+	if a.Logger != nil && a.SessionID != "" {
+		if err := a.Logger.SetSession(a.SessionID); err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: failed to set session for logger: %v\n", err)
+		}
+	}
+
 	var lastPromptTokens int
 	var lastCompTokens int
 	var lastChatDuration time.Duration
