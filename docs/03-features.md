@@ -77,7 +77,7 @@ ser chamada apenas para gerar a mensagem. Sempre confirmar com o usuário antes.
 
 ## Feature 6: Histórico de sessão persistente
 
-Status: Not implemented
+Status: Done
 
 Criar um UUID ao iniciar uma sessão, que ficará salva em $ZE_HOME/sessions,
 que por padrão é $HOME/.config/ze.
@@ -91,7 +91,7 @@ todo o contexto carregado será então enviado.
 
 ## Feature 7: Logs de execução em arquivo
 
-Status: Not implemented
+Status: Done
 
 Gravar em um arquivo de logs, por padrão $ZE_HOME/logs, ZE_HOME=$HOME/.config/ze
 por padrão.
