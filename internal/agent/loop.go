@@ -40,6 +40,7 @@ type Agent struct {
 	ToolDefs             []llm.ToolDefinition
 	History              []llm.ChatMessage
 	Reporter             AgentReporter // Optional reporter for UI updates
+	Logger               Logger        // Optional logger for execution tracking
 	Verbose              bool
 	MaxIteration         int
 	ShowThinking         bool
@@ -50,7 +51,7 @@ type Agent struct {
 	SessionManager       *SessionManager
 }
 
-func NewAgent(client llm.Client, model string, availableTools []tools.Tool, verbose bool, maxIter int, showThinking bool, sessionID string, sessionManager *SessionManager) *Agent {
+func NewAgent(client llm.Client, model string, availableTools []tools.Tool, logger Logger, verbose bool, maxIter int, showThinking bool, sessionID string, sessionManager *SessionManager) *Agent {
 	toolMap := make(map[string]tools.Tool)
 	toolDefs := make([]llm.ToolDefinition, 0, len(availableTools))
 	for _, t := range availableTools {
@@ -79,6 +80,8 @@ func NewAgent(client llm.Client, model string, availableTools []tools.Tool, verb
 		Tools:         toolMap,
 		ToolDefs:      toolDefs,
 		History:       []llm.ChatMessage{},
+		Reporter:      nil,
+		Logger:        logger,
 		Verbose:       verbose,
 		MaxIteration:  maxIter,
 		ShowThinking:  showThinking,
@@ -131,6 +134,11 @@ func (a *Agent) Run(userInput string) (string, AgentStats, error) {
 		a.pendingCommandOutput = ""
 	}
 
+	// Log user message
+	if a.Logger != nil {
+		a.Logger.LogUserMessage(finalInput)
+	}
+
 	// 3. Add user message to history
 	a.History = append(a.History, llm.ChatMessage{Role: "user", Content: finalInput})
 	a.saveSession()
@@ -139,6 +147,9 @@ func (a *Agent) Run(userInput string) (string, AgentStats, error) {
 	var lastResp *llm.ChatResponse
 	for i := 0; i < a.MaxIteration; i++ {
 		req := a.prepareRequest()
+		if a.Logger != nil {
+			a.Logger.LogLLMRequest(req)
+		}
 
 		chatStartTime := time.Now()
 		resp, err := a.Client.Chat(req)
@@ -146,7 +157,14 @@ func (a *Agent) Run(userInput string) (string, AgentStats, error) {
 		lastChatDuration = time.Since(chatStartTime)
 
 		if err != nil {
+			if a.Logger != nil {
+				a.Logger.LogError(err, "LLM Chat")
+			}
 			return "", AgentStats{}, fmt.Errorf("LLM error: %w", err)
+		}
+
+		if a.Logger != nil {
+			a.Logger.LogLLMResponse(resp)
 		}
 
 		if len(resp.Choices) == 0 {
@@ -285,6 +303,10 @@ func (a *Agent) handleToolCalls(toolCalls []llm.ToolCall) ([]llm.ChatMessage, er
 			if a.Reporter != nil {
 				a.Reporter.ReportToolExecution(tc.Function.Name, string(tc.Function.Arguments), result, nil)
 			}
+		}
+
+		if a.Logger != nil {
+			a.Logger.LogToolCall(tc.Function.Name, tc.Function.Arguments, result, err)
 		}
 	}
 

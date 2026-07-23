@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -149,6 +150,23 @@ func main() {
 	// Create TUI
 	t := tui.New(cfg.Verbose, cfg.ShowThinking, cfg.NoColor)
 
+	// Get base directory for logs
+	baseDir := os.Getenv("ZE_HOME")
+	if baseDir == "" {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error getting user home: %v\n", err)
+			os.Exit(1)
+		}
+		baseDir = filepath.Join(home, ".config", "ze")
+	}
+	logger, err := agent.NewFileLogger(baseDir)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error initializing logger: %v\n", err)
+		os.Exit(1)
+	}
+	defer logger.Close()
+
 	// Handle Session
 	sm, err := agent.NewSessionManager()
 	if err != nil {
@@ -167,7 +185,7 @@ func main() {
 	}
 
 	// Create agent with full multi-step loop and reporter
-	zeAgent := agent.NewAgent(client, modelName, availableTools, cfg.Verbose, cfg.MaxIteration, cfg.ShowThinking, sessionID, sm)
+	zeAgent := agent.NewAgent(client, modelName, availableTools, logger, cfg.Verbose, cfg.MaxIteration, cfg.ShowThinking, sessionID, sm)
 	zeAgent.Reporter = t
 
 	// Load existing history if session ID is provided
