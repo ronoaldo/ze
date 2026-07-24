@@ -39,10 +39,11 @@ func (m *MockTool) JSONSchema() map[string]interface{} { return m.schema }
 // MockLogger is a dummy logger for testing.
 type MockLogger struct{}
 
-func (m *MockLogger) LogUserMessage(message string)                                     {}
-func (m *MockLogger) LogLLMRequest(req *llm.ChatRequest)                                  {}
-func (m *MockLogger) LogLLMResponse(resp *llm.ChatResponse)                                {}
-func (m *MockLogger) LogError(err error, context string)                                  {}
+func (m *MockLogger) SetSession(sessionID string) error                                            { return nil }
+func (m *MockLogger) LogUserMessage(message string)                                                {}
+func (m *MockLogger) LogLLMRequest(req *llm.ChatRequest)                                           {}
+func (m *MockLogger) LogLLMResponse(resp *llm.ChatResponse)                                        {}
+func (m *MockLogger) LogError(err error, context string)                                           {}
 func (m *MockLogger) LogToolCall(toolName string, args interface{}, result interface{}, err error) {}
 
 // Helper to create a ChatResponse with a single choice

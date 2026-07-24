@@ -119,8 +119,8 @@ func (l *FileLogger) LogUserMessage(content string) {
 
 func (l *FileLogger) LogLLMRequest(req *llm.ChatRequest) {
 	l.write(LogEntry{
-		Type:     LogTypeLLMReq,
-		Request:  req,
+		Type:    LogTypeLLMReq,
+		Request: req,
 	})
 }
 
