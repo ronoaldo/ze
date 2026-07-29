@@ -11,10 +11,16 @@ import (
 // optimized for Gemma 4 (instruction-tuned) models.
 // It attempts to load AGENTS.md from the user's home directory and the current directory
 // to provide both global and project-specific context.
-func GetGemma4SystemPrompt() string {
+// The modelName parameter is the currently loaded LLM model name.
+func GetGemma4SystemPrompt(modelName string) string {
+	modelInfo := ""
+	if modelName != "" {
+		modelInfo = fmt.Sprintf("You are running on model: %s\n\n", modelName)
+	}
+
 	basePrompt := `You are Zé, an autonomous programming agent designed to write, read, and manage code.
 
-## Tool Calling
+` + modelInfo + `## Tool Calling
 When you need to use a tool, use the standard tool calling mechanism.
 
 Rules for tool calling:

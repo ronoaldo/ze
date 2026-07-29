@@ -302,7 +302,7 @@ func (a *Agent) saveSession() {
 
 func (a *Agent) prepareRequest() *llm.ChatRequest {
 	messages := []llm.ChatMessage{
-		{Role: "system", Content: prompt.GetGemma4SystemPrompt()},
+		{Role: "system", Content: prompt.GetGemma4SystemPrompt(a.Model)},
 	}
 	messages = append(messages, a.History...)
 
