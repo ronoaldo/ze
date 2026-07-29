@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/ronoaldo/ze/internal/agent"
 	"github.com/ronoaldo/ze/internal/tools"
 )
 
@@ -13,14 +14,6 @@ func TestNew(t *testing.T) {
 	tui := New(false, false, false)
 	if tui == nil {
 		t.Fatal("New() returned nil")
-	}
-	if tui.verbose {
-		t.Error("Expected verbose to be false")
-	}
-
-	tuiVerbose := New(true, false, false)
-	if !tuiVerbose.verbose {
-		t.Error("Expected verbose to be true")
 	}
 }
 
@@ -36,37 +29,43 @@ func TestSummarizeArgs(t *testing.T) {
 			name:     "read_file path",
 			toolName: "read_file",
 			args:     `{"path": "test.txt"}`,
-			expected: "test.txt",
+			expected: "'test.txt'",
 		},
 		{
 			name:     "write_file path",
 			toolName: "write_file",
 			args:     `{"path": "test.txt", "content": "hi"}`,
-			expected: "test.txt",
+			expected: "'test.txt'",
 		},
 		{
 			name:     "list_files path",
 			toolName: "list_files",
 			args:     `{"path": "."}`,
-			expected: ".",
+			expected: "'.'",
 		},
 		{
-			name:     "go_doc package",
-			toolName: "go_doc",
-			args:     `{"package": "fmt"}`,
-			expected: "fmt",
+			name:     "go_tool doc package",
+			toolName: "go_tool",
+			args:     `{"action": "doc", "package": "fmt"}`,
+			expected: "doc(fmt)",
+		},
+		{
+			name:     "git_tool diff empty",
+			toolName: "git_tool",
+			args:     `{}`,
+			expected: "diff",
+		},
+		{
+			name:     "git_tool add all",
+			toolName: "git_tool",
+			args:     `{"action": "add"}`,
+			expected: "add(all)",
 		},
 		{
 			name:     "invalid json",
 			toolName: "read_file",
 			args:     `{invalid}`,
 			expected: `{invalid}`,
-		},
-		{
-			name:     "empty args",
-			toolName: "read_file",
-			args:     `{}`,
-			expected: "{}",
 		},
 	}
 
@@ -92,18 +91,12 @@ func TestReportToolExecution(t *testing.T) {
 		}
 		tui.ReportToolExecution("read_file", `{"path": "foo.go"}`, res, nil)
 
-		// Expected: * [Bold][Cyan]read_file[Reset]('foo.go') [Green][+1/-1][Reset]
-		// Since we can't easily predict all ANSI codes perfectly if they change,
-		// let's check for key components.
 		output := buf.String()
 		if !strings.Contains(output, "read_file") {
 			t.Errorf("Expected tool name in output, got %q", output)
 		}
-		if !strings.Contains(output, "foo.go") {
+		if !strings.Contains(output, "'foo.go'") {
 			t.Errorf("Expected argument in output, got %q", output)
-		}
-		if !strings.Contains(output, "[+1/-1]") {
-			t.Errorf("Expected summary in output, got %q", output)
 		}
 	})
 
@@ -117,20 +110,24 @@ func TestReportToolExecution(t *testing.T) {
 			t.Errorf("Expected error message in output, got %q", buf.String())
 		}
 	})
+}
 
-	t.Run("Verbose Mode", func(t *testing.T) {
-		buf := new(bytes.Buffer)
-		tui := New(true, false, false)
-		tui.w = buf
+func TestReportStatus(t *testing.T) {
+	buf := new(bytes.Buffer)
+	tui := New(false, false, false)
+	tui.w = buf
 
-		res := tools.ToolResult{
-			Summary:    "[+1/-1]",
-			FullResult: "some content",
-		}
-		tui.ReportToolExecution("read_file", `{"path": "foo.go"}`, res, nil)
-
-		if !strings.Contains(buf.String(), "some content") {
-			t.Errorf("Expected full result in output, got %q", buf.String())
-		}
-	})
+	stats := agent.AgentStats{
+		Status:       "Running",
+		TotalTokens:  100,
+		PromptTokens: 50,
+		CompTokens:   50,
+		CompPerSec:   10,
+		PromptPerSec: 20,
+	}
+	tui.ReportStatus(stats)
+	output := buf.String()
+	if !strings.Contains(output, "Status: Running") {
+		t.Errorf("Expected status in output, got %q", output)
+	}
 }

@@ -75,15 +75,13 @@ O agente pode interagir com seu ambiente usando as seguintes ferramentas:
 
 - `read_file`: Lê o conteúdo de um arquivo.
 - `write_file`: Escreve ou sobrescreve um arquivo (reporta o total de bytes escritos).
-- `list_files`: Lista arquivos em um diretório.
+- `list_files`: Lista arquivos e diretórios (suporta padrões glob e busca recursiva).
 - `remove_file`: Deleta um arquivo.
 - `edit_file`: Realiza edições precisas e atômicas em arquivos (mostra um resumo das alterações).
-- `go_doc`: Inspeciona a documentação Go (`go_doc('all')` para inspeção completa da API).
-- `go_test`: Executa testes Go no diretório atual (exibe a saída de erro em caso de falha).
-- `diff`: Mostra estatísticas detalhadas de mudanças (staged, unstaged e arquivos não rastreados).
+- `go_tool`: Inspeciona código Go (docs ou testes).
 - `web_fetch`: Busca conteúdo de URLs da web (HTML, JSON, Markdown, etc.).
-- `git_add`: Adiciona arquivos à área de staging do git (suporta arquivos específicos ou todas as mudanças via '.').
-- `git_commit`: Realiza commits (requer confirmação explícita do usuário).
+- `git_tool`: Gerencia operações do git (diff, add, commit).
+- `move_file`: Renomeia ou move arquivos e diretórios.
 
 ## 🛠 Solução de Problemas
 

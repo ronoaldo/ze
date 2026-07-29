@@ -75,15 +75,13 @@ The agent can interact with your environment using the following tools:
 
 - `read_file`: Read the content of a file.
 - `write_file`: Write or overwrite a file (reports total bytes written).
-- `list_files`: List files in a directory.
+- `list_files`: List files and directories (supports glob patterns and recursive search).
 - `remove_file`: Delete a file.
 - `edit_file`: Perform precise, atomic edits on files (shows change summary).
-- `go_doc`: Inspect Go documentation (`go_doc('all')` for full API inspection).
-- `go_test`: Run Go tests (displays error output on failure).
-- `diff`: Show detailed statistics of changes (staged, unstaged, and untracked).
+- `go_tool`: Inspect Go code (docs or testing).
 - `web_fetch`: Fetch content from web URLs (HTML, JSON, Markdown, etc.).
-- `git_add`: Add files to the git staging area (supports specific files or all changes via '.').
-- `git_commit`: Commit changes (requires explicit user confirmation).
+- `git_tool`: Manage git operations (diff, add, commit).
+- `move_file`: Rename or move files and directories.
 
 ## 🛠 Troubleshooting
 
