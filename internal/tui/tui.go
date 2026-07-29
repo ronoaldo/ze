@@ -81,7 +81,8 @@ func isUTF8Locale() bool {
 	lcCtype := strings.ToUpper(os.Getenv("LC_CTYPE"))
 	return strings.Contains(lang, "UTF-8") || strings.Contains(lcAll, "UTF-8") ||
 		strings.Contains(lcCtype, "UTF-8") ||
-		strings.Contains(lang, "UTF8") || strings.Contains(lcAll, "UTF8") ||
+		strings.Contains(lang, "UTF8") ||
+		strings.Contains(lcAll, "UTF8") ||
 		strings.Contains(lcCtype, "UTF8") ||
 		strings.Contains(lang, "UTF8") ||
 		strings.Contains(lcAll, "UTF8")
@@ -149,25 +150,71 @@ func (t *TUI) readLine() (string, error) {
 func (t *TUI) summarizeArgs(toolName string, argsJSON string) string {
 	var args map[string]interface{}
 
-	err := json.Unmarshal([]byte(argsJSON), &args)
-	if err != nil {
+	if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
 		return argsJSON
 	}
 
+	// 1. Prioridade para 'path' (funciona para read_file, write_file, list_files, go_test, edit_file, etc)
 	if path, ok := args["path"].(string); ok {
-		return path
+		return fmt.Sprintf("'%s'", path)
+	}
+	if oldPath, ok := args["old_path"].(string); ok {
+		newPath, _ := args["new_path"].(string)
+		if newPath != "" {
+			return fmt.Sprintf("'%s' -> '%s'", oldPath, newPath)
+		}
+		return fmt.Sprintf("'%s'", oldPath)
+	}
+	if newPath, ok := args["new_path"].(string); ok {
+		return fmt.Sprintf("%s -> '%s'", args["old_path"], newPath)
 	}
 
+	// 2. Tratamento por tipo de ferramenta para maior clareza
 	switch toolName {
-	case "go_doc":
-		if pkg, ok := args["package"].(string); ok {
-			return pkg
+	case "git_tool":
+		action, _ := args["action"].(string)
+		if action == "add" {
+			if files, ok := args["files"].([]interface{}); ok && len(files) > 0 {
+				return fmt.Sprintf("add(%s)", strings.Join(toStringSlice(files), ", "))
+			}
+			return "add(all)"
 		}
-	case "diff":
-		return "."
+		if action == "diff" || action == "" {
+			return "diff"
+		}
+		return action
+	case "go_tool":
+		action, _ := args["action"].(string)
+		if action == "doc" {
+			if pkg, ok := args["package"].(string); ok {
+				return fmt.Sprintf("doc(%s)", pkg)
+			}
+		}
+		return action
+	case "move_file":
+		return "move"
+	}
+
+	// 3. Se houver um campo 'action', use-o
+	if action, ok := args["action"].(string); ok && action != "" {
+		return action
+	}
+
+	// Se for git_tool mas não encontrou ação, assume diff para exibição amigável
+	if toolName == "git_tool" {
+		return "diff"
 	}
 
 	return "{}"
+}
+
+// toStringSlice converत an interface slice to a string slice.
+func toStringSlice(s []interface{}) []string {
+	res := make([]string, len(s))
+	for i, v := range s {
+		res[i] = fmt.Sprintf("%v", v)
+	}
+	return res
 }
 
 func (t *TUI) ReportToolExecution(toolName string, args string, res tools.ToolResult, err error) {
@@ -270,7 +317,7 @@ func (t *TUI) ReportReasoning(content string, tokens int) {
 	}
 
 	term := terms[t.rng.Intn(len(terms))]
-	fmt.Fprintf(t.w, "* %sPensou %d tokens de %s...%s\n", t.palette.Yellow, tokens, term, t.palette.Reset)
+	fmt.Fprintf(t.w, "* %s%s%s%s\n", t.palette.Yellow, "Pensou ", term, t.palette.Reset)
 	if t.showThinking {
 		fmt.Fprintf(t.w, "%s%s%s\n", t.palette.Dim, RenderMarkdown(content, t.markdownStyle()), t.palette.Reset)
 	}

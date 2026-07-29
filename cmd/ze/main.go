@@ -50,11 +50,9 @@ type Config struct {
 }
 
 // ParseConfig parses command line arguments and environment variables.
-// It follows the priority: Flag > Environment Variable > Default.
 func ParseConfig(args []string, env map[string]string) (*Config, error) {
 	fs := flag.NewFlagSet("ze", flag.ContinueOnError)
 
-	// Default values from ENV or Constants
 	defaultURL := DefaultURL
 	if val, ok := env["LLAMA_URL"]; ok && val != "" {
 		defaultURL = val
@@ -65,7 +63,6 @@ func ParseConfig(args []string, env map[string]string) (*Config, error) {
 		defaultTimeout = val
 	}
 
-	// Define flags
 	urlFlag := fs.String("url", defaultURL, "Llama server URL")
 	modelFlag := fs.String("model", "", "Model name to use")
 	timeoutFlag := fs.String("timeout", defaultTimeout, "Timeout duration (e.g. 60s, 5m)")
@@ -101,10 +98,8 @@ func ParseConfig(args []string, env map[string]string) (*Config, error) {
 }
 
 func main() {
-	// Use os.Args[1:] to exclude the program name
 	cfg, err := ParseConfig(os.Args[1:], osEnvironAsMap())
 	if err != nil {
-		// If it's a help message or usage error, flag.Parse already printed it.
 		if !strings.Contains(err.Error(), "flag has no usage") && !strings.Contains(err.Error(), "help") {
 			fmt.Fprintf(os.Stderr, "Error parsing flags: %v\n", err)
 		}
@@ -116,17 +111,14 @@ func main() {
 		return
 	}
 
-	// Create real client
 	client := llm.NewLlamaServerClient(cfg.URL, cfg.Timeout, cfg.VerboseAPICalls)
 
-	// Discover available models from the server
 	availableModels, err := client.ListModels()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Warning: could not list models from %s: %v\nUsing hardware detection.\n", cfg.URL, err)
 		availableModels = nil
 	}
 
-	// Select model: user specified > loaded Gemma > any loaded
 	modelName := selectModel(availableModels, cfg.ModelName)
 
 	// Register tools
@@ -136,21 +128,17 @@ func main() {
 		&tools.FileWriteTool{},
 		&tools.ListFilesTool{},
 		&tools.RemoveFileTool{},
+		&tools.MoveFileTool{},
 
 		// Code manipulation and inspection tools
 		&tools.EditFileTool{},
-		&tools.GoDocTool{},
-		&tools.GoTestTool{},
+		&tools.GoTool{},
 		&tools.WebFetchTool{},
-		&tools.DiffTool{},
-		&tools.GitCommitTool{},
-		&tools.GitAddTool{},
+		&tools.GitTool{},
 	}
 
-	// Create TUI
 	t := tui.New(cfg.Verbose, cfg.ShowThinking, cfg.NoColor)
 
-	// Get base directory for logs
 	baseDir := os.Getenv("ZE_HOME")
 	if baseDir == "" {
 		home, err := os.UserHomeDir()
@@ -167,7 +155,6 @@ func main() {
 	}
 	defer logger.Close()
 
-	// Handle Session
 	sm, err := agent.NewSessionManager()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error initializing session manager: %v\n", err)
@@ -184,7 +171,6 @@ func main() {
 		sessionID = cfg.SessionID
 	}
 
-	// Create agent with full multi-step loop and reporter
 	zeAgent := agent.NewAgent(
 		client,
 		modelName,
@@ -197,7 +183,6 @@ func main() {
 		agent.WithReporter(t),
 	)
 
-	// Load existing history if session ID is provided
 	if cfg.SessionID != "" {
 		history, err := sm.LoadSession(cfg.SessionID)
 		if err != nil {
@@ -207,10 +192,8 @@ func main() {
 		}
 	}
 
-	// Register commands
 	commands.RegisterCommands()
 
-	// Create Input Handler
 	inputHandler := tui.NewInputHandler(
 		commands.ExecuteCommand,
 		func(input string) (string, agent.AgentStats, error) {
@@ -222,12 +205,10 @@ func main() {
 		},
 	)
 
-	// Show model info using Neofetch-style banner
 	if !t.IsHeadless() {
 		printNeofetch(modelName, cfg, sessionID)
 	}
 
-	// Run TUI — wraps the agent's Run method
 	err = t.Run(func(msg string) (string, agent.AgentStats, error) {
 		return inputHandler.Process(zeAgent, msg)
 	}, inputHandler.IsMultiline)
@@ -241,7 +222,6 @@ func main() {
 	}
 }
 
-// printNeofetch displays a neofetch-style banner with ASCII art from logo.txt and system info.
 func printNeofetch(modelName string, cfg *Config, sessionID string) {
 	info := []string{
 		fmt.Sprintf("Model:       %s", modelName),
@@ -254,39 +234,30 @@ func printNeofetch(modelName string, cfg *Config, sessionID string) {
 
 	fmt.Fprintln(os.Stderr, "")
 
-	// Clean up logo data: split into lines. We don't use TrimSpace on the whole block
-	// because it would destroy the intended indentation of the ASCII art.
 	logoLines := strings.Split(logoEmbed, "\n")
 
-	// Remove the last empty line if the file ends with a newline
 	if len(logoLines) > 0 && logoLines[len(logoLines)-1] == "" {
 		logoLines = logoLines[:len(logoLines)-1]
 	}
 
-	// We iterate based on the maximum number of elements to ensure everything is printed
 	maxLines := len(logoLines)
 	if len(info) > maxLines {
 		maxLines = len(info)
 	}
 
 	for i := 0; i < maxLines; i++ {
-		// Logo line
 		if i < len(logoLines) {
 			line := logoLines[i]
-			// Minimal padding for alignment
 			fmt.Fprint(os.Stderr, line)
-			// Ensure there's enough separation between logo and info
 			if len(line) < 20 {
 				fmt.Fprint(os.Stderr, strings.Repeat(" ", 20-len(line)))
 			} else {
 				fmt.Fprint(os.Stderr, "  ")
 			}
 		} else {
-			// Padding if logo has fewer lines than info
 			fmt.Fprint(os.Stderr, "                      ")
 		}
 
-		// Info line
 		if i < len(info) {
 			fmt.Fprintln(os.Stderr, info[i])
 		} else {
@@ -296,21 +267,17 @@ func printNeofetch(modelName string, cfg *Config, sessionID string) {
 	fmt.Fprintln(os.Stderr, "")
 }
 
-// selectModel picks the best model from the server based on user input or loaded status.
-// Priority: user specified > loaded Gemma > any loaded.
 func selectModel(availableModels []llm.ModelInfo, userModel string) string {
 	if userModel != "" {
 		return userModel
 	}
 
-	// 1. Prefer a loaded Gemma 4 model
 	for _, m := range availableModels {
 		if m.Status == "loaded" && strings.Contains(strings.ToLower(m.ID), "gemma") {
 			return m.ID
 		}
 	}
 
-	// 2. Any loaded model (with a note)
 	for _, m := range availableModels {
 		if m.Status == "loaded" {
 			fmt.Fprintf(os.Stderr, "Note: model '%s' is loaded but not a Gemma 4. Using it anyway.\n", m.ID)
@@ -318,11 +285,9 @@ func selectModel(availableModels []llm.ModelInfo, userModel string) string {
 		}
 	}
 
-	// No user model and no loaded model: skip automatic detection.
 	return ""
 }
 
-// osEnvironAsMap converts os.Environ() to a map for testing/parsing.
 func osEnvironAsMap() map[string]string {
 	env := make(map[string]string)
 	for _, e := range os.Environ() {
