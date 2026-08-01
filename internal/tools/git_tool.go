@@ -253,7 +253,10 @@ func (t *GitTool) SummarizeArgs(args map[string]interface{}) string {
 	}
 	if action == "commit" {
 		if msg, ok := args["message"].(string); ok {
-			return fmt.Sprintf("commit('%s')", msg)
+			// Truncate to first line to avoid messy TUI output
+			lines := strings.Split(msg, "\n")
+			firstLine := strings.TrimSpace(lines[0])
+			return fmt.Sprintf("commit('%s')", firstLine)
 		}
 		return "commit"
 	}
