@@ -15,6 +15,7 @@ type ToolResult struct {
 type Tool interface {
 	Name() string
 	Execute(args map[string]interface{}) (ToolResult, error)
+	SummarizeArgs(args map[string]interface{}) string
 	JSONSchema() map[string]interface{}
 }
 

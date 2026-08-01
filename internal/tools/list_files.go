@@ -115,6 +115,18 @@ func (t *ListFilesTool) Execute(args map[string]interface{}) (ToolResult, error)
 	}, nil
 }
 
+func (t *ListFilesTool) SummarizeArgs(args map[string]interface{}) string {
+	path, _ := args["path"].(string)
+	pattern, _ := args["pattern"].(string)
+	if pattern != "" {
+		return fmt.Sprintf("'%s' (pattern: %s)", path, pattern)
+	}
+	if path == "" {
+		return "."
+	}
+	return fmt.Sprintf("'%s'", path)
+}
+
 func (t *ListFilesTool) JSONSchema() map[string]interface{} {
 	return map[string]interface{}{
 		"name":        "list_files",

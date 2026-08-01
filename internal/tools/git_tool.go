@@ -231,6 +231,35 @@ func (t *GitTool) parseNumstat(output string, add *int, del *int) {
 	}
 }
 
+func (t *GitTool) SummarizeArgs(args map[string]interface{}) string {
+	action, _ := args["action"].(string)
+	if action == "add" {
+		if files, ok := args["files"].([]interface{}); ok && len(files) > 0 {
+			var fileList []string
+			for _, f := range files {
+				if s, ok := f.(string); ok {
+					fileList = append(fileList, s)
+				}
+			}
+			if len(fileList) == 1 {
+				return fmt.Sprintf("add(%s)", fileList[0])
+			}
+			return fmt.Sprintf("add(%d files)", len(fileList))
+		}
+		return "add(all)"
+	}
+	if action == "diff" || action == "" {
+		return "diff"
+	}
+	if action == "commit" {
+		if msg, ok := args["message"].(string); ok {
+			return fmt.Sprintf("commit('%s')", msg)
+		}
+		return "commit"
+	}
+	return action
+}
+
 func (t *GitTool) JSONSchema() map[string]interface{} {
 	return map[string]interface{}{
 		"name":        "git_tool",

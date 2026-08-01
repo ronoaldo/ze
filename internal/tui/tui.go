@@ -2,7 +2,6 @@ package tui
 
 import (
 	"bufio"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -146,69 +145,7 @@ func (t *TUI) readLine() (string, error) {
 	return strings.TrimRight(line, "\r\n"), nil
 }
 
-// summarizeArgs creates a human-readable summary of tool arguments.
-func (t *TUI) summarizeArgs(toolName string, argsJSON string) string {
-	var args map[string]interface{}
-
-	if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
-		return argsJSON
-	}
-
-	// 1. Prioridade para 'path' (funciona para read_file, write_file, list_files, go_test, edit_file, etc)
-	if path, ok := args["path"].(string); ok {
-		return fmt.Sprintf("'%s'", path)
-	}
-	if oldPath, ok := args["old_path"].(string); ok {
-		newPath, _ := args["new_path"].(string)
-		if newPath != "" {
-			return fmt.Sprintf("'%s' -> '%s'", oldPath, newPath)
-		}
-		return fmt.Sprintf("'%s'", oldPath)
-	}
-	if newPath, ok := args["new_path"].(string); ok {
-		return fmt.Sprintf("%s -> '%s'", args["old_path"], newPath)
-	}
-
-	// 2. Tratamento por tipo de ferramenta para maior clareza
-	switch toolName {
-	case "git_tool":
-		action, _ := args["action"].(string)
-		if action == "add" {
-			if files, ok := args["files"].([]interface{}); ok && len(files) > 0 {
-				return fmt.Sprintf("add(%s)", strings.Join(toStringSlice(files), ", "))
-			}
-			return "add(all)"
-		}
-		if action == "diff" || action == "" {
-			return "diff"
-		}
-		return action
-	case "go_tool":
-		action, _ := args["action"].(string)
-		if action == "doc" {
-			if pkg, ok := args["package"].(string); ok {
-				return fmt.Sprintf("doc(%s)", pkg)
-			}
-		}
-		return action
-	case "move_file":
-		return "move"
-	}
-
-	// 3. Se houver um campo 'action', use-o
-	if action, ok := args["action"].(string); ok && action != "" {
-		return action
-	}
-
-	// Se for git_tool mas não encontrou ação, assume diff para exibição amigável
-	if toolName == "git_tool" {
-		return "diff"
-	}
-
-	return "{}"
-}
-
-// toStringSlice converत an interface slice to a string slice.
+// toStringSlice convert an interface slice to a string slice.
 func toStringSlice(s []interface{}) []string {
 	res := make([]string, len(s))
 	for i, v := range s {
@@ -217,9 +154,8 @@ func toStringSlice(s []interface{}) []string {
 	return res
 }
 
-func (t *TUI) ReportToolExecution(toolName string, args string, res tools.ToolResult, err error) {
-	summary := t.summarizeArgs(toolName, args)
-	header := fmt.Sprintf("%s%s%s%s('%s')",
+func (t *TUI) ReportToolExecution(toolName string, summary string, res tools.ToolResult, err error) {
+	header := fmt.Sprintf("%s%s%s%s(%s)",
 		t.palette.Bold, t.palette.Cyan, toolName, t.palette.Reset, summary)
 
 	if err != nil {

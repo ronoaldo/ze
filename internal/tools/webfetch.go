@@ -87,6 +87,13 @@ func (t *WebFetchTool) Execute(args map[string]interface{}) (ToolResult, error) 
 }
 
 // JSONSchema returns the JSON schema for the tool's arguments.
+func (t *WebFetchTool) SummarizeArgs(args map[string]interface{}) string {
+	if url, ok := args["url"].(string); ok {
+		return fmt.Sprintf("'%s'", url)
+	}
+	return ""
+}
+
 func (t *WebFetchTool) JSONSchema() map[string]interface{} {
 	return map[string]interface{}{
 		"name":        "web_fetch",

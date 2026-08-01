@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+
+DELAY=10
+
+function align_right() {
+	printf "%${COLUMNS}s\n" "$*"
+}
+
+function header() {
+	printf "[ %20s ]\n" "$*"
+}
+
+function what_changed() {
+	header "Changes"
+	git st
+
+	echo
+	header "Tests"
+	go test ./...
+}
+
+while true ; do
+	clear
+	align_right "Updating every ${DELAY}s"
+	what_changed
+	sleep ${DELAY}
+done

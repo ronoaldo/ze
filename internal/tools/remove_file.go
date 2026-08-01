@@ -63,6 +63,13 @@ func (t *RemoveFileTool) Execute(args map[string]interface{}) (ToolResult, error
 	}, nil
 }
 
+func (t *RemoveFileTool) SummarizeArgs(args map[string]interface{}) string {
+	if path, ok := args["path"].(string); ok {
+		return fmt.Sprintf("'%s'", path)
+	}
+	return ""
+}
+
 func (t *RemoveFileTool) JSONSchema() map[string]interface{} {
 	return map[string]interface{}{
 		"name":        "remove_file",

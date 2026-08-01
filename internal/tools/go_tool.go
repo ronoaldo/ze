@@ -109,6 +109,23 @@ func (t *GoTool) executeTest(dir string, path string) (ToolResult, error) {
 	}, nil
 }
 
+func (t *GoTool) SummarizeArgs(args map[string]interface{}) string {
+	action, _ := args["action"].(string)
+	if action == "doc" {
+		if pkg, ok := args["package"].(string); ok && pkg != "" {
+			return fmt.Sprintf("doc('%s')", pkg)
+		}
+		return "doc(all)"
+	}
+	if action == "test" {
+		if path, ok := args["path"].(string); ok && path != "" {
+			return fmt.Sprintf("test('%s')", path)
+		}
+		return "test(all)"
+	}
+	return action
+}
+
 func (t *GoTool) JSONSchema() map[string]interface{} {
 	return map[string]interface{}{
 		"name":        "go_tool",

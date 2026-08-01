@@ -12,6 +12,7 @@ type FileReadTool struct {
 }
 
 func (t *FileReadTool) Name() string { return "read_file" }
+
 func (t *FileReadTool) Execute(args map[string]interface{}) (ToolResult, error) {
 	var a FileReadArgs
 	if err := mapToStruct(args, &a); err != nil {
@@ -32,6 +33,14 @@ func (t *FileReadTool) Execute(args map[string]interface{}) (ToolResult, error) 
 		Summary:    fmt.Sprintf("%d bytes", len(content)),
 	}, nil
 }
+
+func (t *FileReadTool) SummarizeArgs(args map[string]interface{}) string {
+	if path, ok := args["path"].(string); ok {
+		return fmt.Sprintf("'%s'", path)
+	}
+	return ""
+}
+
 func (t *FileReadTool) JSONSchema() map[string]interface{} {
 	return map[string]interface{}{
 		"name":        "read_file",

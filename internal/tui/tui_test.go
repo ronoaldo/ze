@@ -17,68 +17,6 @@ func TestNew(t *testing.T) {
 	}
 }
 
-func TestSummarizeArgs(t *testing.T) {
-	tui := New(false, false, false)
-	tests := []struct {
-		name     string
-		toolName string
-		args     string
-		expected string
-	}{
-		{
-			name:     "read_file path",
-			toolName: "read_file",
-			args:     `{"path": "test.txt"}`,
-			expected: "'test.txt'",
-		},
-		{
-			name:     "write_file path",
-			toolName: "write_file",
-			args:     `{"path": "test.txt", "content": "hi"}`,
-			expected: "'test.txt'",
-		},
-		{
-			name:     "list_files path",
-			toolName: "list_files",
-			args:     `{"path": "."}`,
-			expected: "'.'",
-		},
-		{
-			name:     "go_tool doc package",
-			toolName: "go_tool",
-			args:     `{"action": "doc", "package": "fmt"}`,
-			expected: "doc(fmt)",
-		},
-		{
-			name:     "git_tool diff empty",
-			toolName: "git_tool",
-			args:     `{}`,
-			expected: "diff",
-		},
-		{
-			name:     "git_tool add all",
-			toolName: "git_tool",
-			args:     `{"action": "add"}`,
-			expected: "add(all)",
-		},
-		{
-			name:     "invalid json",
-			toolName: "read_file",
-			args:     `{invalid}`,
-			expected: `{invalid}`,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := tui.summarizeArgs(tt.toolName, tt.args)
-			if got != tt.expected {
-				t.Errorf("summarizeArgs() = %q, want %q", got, tt.expected)
-			}
-		})
-	}
-}
-
 func TestReportToolExecution(t *testing.T) {
 	t.Run("Standard Mode Success", func(t *testing.T) {
 		buf := new(bytes.Buffer)
@@ -89,7 +27,8 @@ func TestReportToolExecution(t *testing.T) {
 			Summary:    "[+1/-1]",
 			FullResult: "some content",
 		}
-		tui.ReportToolExecution("read_file", `{"path": "foo.go"}`, res, nil)
+		// The agent should have already summarized the args before calling the reporter
+		tui.ReportToolExecution("read_file", "'foo.go'", res, nil)
 
 		output := buf.String()
 		if !strings.Contains(output, "read_file") {

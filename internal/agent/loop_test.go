@@ -34,7 +34,8 @@ func (m *MockTool) Name() string { return m.name }
 func (m *MockTool) Execute(args map[string]interface{}) (tools.ToolResult, error) {
 	return m.execute(args)
 }
-func (m *MockTool) JSONSchema() map[string]interface{} { return m.schema }
+func (m *MockTool) JSONSchema() map[string]interface{}               { return m.schema }
+func (m *MockTool) SummarizeArgs(args map[string]interface{}) string { return "mock_args" }
 
 // MockLogger is a dummy logger for testing.
 type MockLogger struct{}

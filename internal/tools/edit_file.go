@@ -82,10 +82,17 @@ func (t *EditFileTool) Execute(args map[string]interface{}) (ToolResult, error) 
 	}, nil
 }
 
+func (t *EditFileTool) SummarizeArgs(args map[string]interface{}) string {
+	if path, ok := args["path"].(string); ok {
+		return fmt.Sprintf("'%s'", path)
+	}
+	return ""
+}
+
 func (t *EditFileTool) JSONSchema() map[string]interface{} {
 	return map[string]interface{}{
 		"name":        "edit_file",
-		"description": "Edits a file with a list of string replacements. IMPORTANT: You must first provide the 'path' of the file, and then the 'edits' list. Ensure the file path is correct before specifying changes.",
+		"description": "Edits a file with a list of string replacements. IMPORTANT: You must first provide the 'path' of the file, and then the 'edits' list. Ensure the file path is correct before providing the content.",
 		"parameters": map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{

@@ -10,9 +10,11 @@ while true ; do
 	if grep "DONE" <( tail -n 3 "tmp/${TASK_ID}" ) ; then
 		echo "Detectamos que completou a task"
 		break
-	else
-		echo "Retomando ..."
-		sleep 5
+	elif grep "Error: " <( tail -n 3 "tmp/${TASK_ID}" ) ; then
+		echo "Detectamos um erro de execução"
 	fi
+
+	echo "Retomando em 5 segundos ..."
+	sleep 5
 done
 

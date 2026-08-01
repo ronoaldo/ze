@@ -27,7 +27,7 @@ type AgentStats struct {
 
 // AgentReporter defines an interface for reporting agent activity to the UI.
 type AgentReporter interface {
-	ReportToolExecution(toolName string, args string, res tools.ToolResult, err error)
+	ReportToolExecution(toolName string, summary string, res tools.ToolResult, err error)
 	ReportReasoning(content string, tokens int)
 	ReportStatus(stats AgentStats)
 }
@@ -335,6 +335,11 @@ func (a *Agent) handleToolCalls(toolCalls []llm.ToolCall) ([]llm.ChatMessage, er
 			continue
 		}
 
+		summary := string(tc.Function.Arguments)
+		if ok {
+			summary = tool.SummarizeArgs(args)
+		}
+
 		result, err := tool.Execute(args)
 		if err != nil {
 			// System error
@@ -344,7 +349,7 @@ func (a *Agent) handleToolCalls(toolCalls []llm.ToolCall) ([]llm.ChatMessage, er
 				Content:    fmt.Sprintf("[Tool Error (%s): %v]", tc.Function.Name, err),
 			})
 			if a.Reporter != nil {
-				a.Reporter.ReportToolExecution(tc.Function.Name, string(tc.Function.Arguments), tools.ToolResult{}, err)
+				a.Reporter.ReportToolExecution(tc.Function.Name, summary, tools.ToolResult{}, err)
 			}
 		} else {
 			// Success or Logic Error (err == nil, result.RequiresFullOutput might be true)
@@ -354,7 +359,7 @@ func (a *Agent) handleToolCalls(toolCalls []llm.ToolCall) ([]llm.ChatMessage, er
 				Content:    result.FullResult,
 			})
 			if a.Reporter != nil {
-				a.Reporter.ReportToolExecution(tc.Function.Name, string(tc.Function.Arguments), result, nil)
+				a.Reporter.ReportToolExecution(tc.Function.Name, summary, result, nil)
 			}
 		}
 
