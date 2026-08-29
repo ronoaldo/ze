@@ -1,11 +1,12 @@
 package tui
 
 import (
-	"bufio"
 	"bytes"
+	"context"
 	"errors"
-	"github.com/ronoaldo/ze/internal/agent"
 	"testing"
+
+	"github.com/ronoaldo/ze/internal/agent"
 )
 
 func TestRun_ShellBehavior_CookedMode(t *testing.T) {
@@ -16,15 +17,11 @@ func TestRun_ShellBehavior_CookedMode(t *testing.T) {
 	r := bytes.NewReader(input)
 	w := &bytes.Buffer{}
 
-	tui := &TUI{
-		w:      w,
-		r:      r,
-		reader: bufio.NewReader(r),
-	}
+	tui := NewTestTUI(r, w)
 
 	errStop := errors.New("stop loop")
 	handlerCalled := false
-	handler := func(msg string) (string, agent.AgentStats, error) {
+	handler := func(ctx context.Context, msg string) (string, agent.AgentStats, error) {
 		if msg == "" {
 			return "", agent.AgentStats{}, ErrSkipLine
 		}
@@ -35,7 +32,7 @@ func TestRun_ShellBehavior_CookedMode(t *testing.T) {
 		return "", agent.AgentStats{}, errStop
 	}
 
-	_ = tui.Run(handler, func() bool { return false })
+	_ = tui.Run(context.Background(), handler, func() bool { return false })
 
 	if !handlerCalled {
 		t.Fatal("Handler was never called")
@@ -46,15 +43,11 @@ func TestRun_ShellBehavior_StandardInput(t *testing.T) {
 	input := []byte("olá\n")
 	r := bytes.NewReader(input)
 	w := &bytes.Buffer{}
-	tui := &TUI{
-		w:      w,
-		r:      r,
-		reader: bufio.NewReader(r),
-	}
+	tui := NewTestTUI(r, w)
 
 	errStop := errors.New("stop loop")
 	handlerCalled := false
-	handler := func(msg string) (string, agent.AgentStats, error) {
+	handler := func(ctx context.Context, msg string) (string, agent.AgentStats, error) {
 		handlerCalled = true
 		if msg != "olá" {
 			t.Errorf("Expected 'olá', got: %q", msg)
@@ -62,7 +55,7 @@ func TestRun_ShellBehavior_StandardInput(t *testing.T) {
 		return "", agent.AgentStats{}, errStop
 	}
 
-	_ = tui.Run(handler, func() bool { return false })
+	_ = tui.Run(context.Background(), handler, func() bool { return false })
 
 	if !handlerCalled {
 		t.Fatal("Handler was never called")

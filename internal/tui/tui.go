@@ -2,12 +2,12 @@ package tui
 
 import (
 	"bufio"
+	"context"
 	"errors"
 	"fmt"
 	"io"
 	"math/rand"
 	"os"
-	"regexp"
 	"strings"
 	"time"
 
@@ -15,63 +15,23 @@ import (
 	"github.com/ronoaldo/ze/internal/tools"
 )
 
-var (
-	reInserts = regexp.MustCompile(`(\d+)\s+insertions?\(?\+?\)?`)
-	reDeletes = regexp.MustCompile(`(\d+)\s+deletions?\(?\-?\)?`)
-)
-
-// Palette defines the colors used in the TUI.
-type Palette struct {
-	Reset     string
-	Bold      string
-	Dim       string
-	Cyan      string
-	Green     string
-	Red       string
-	Yellow    string
-	Italic    string
-	Underline string
-}
-
-func DefaultPalette() Palette {
-	return Palette{
-		Reset:     "\x1b[0m",
-		Bold:      "\x1b[1m",
-		Dim:       "\x1b[2m",
-		Cyan:      "\x1b[36m",
-		Green:     "\x1b[32m",
-		Red:       "\x1b[31m",
-		Yellow:    "\x1b[33m",
-		Italic:    "\x1b[3m",
-		Underline: "\x1b[4m",
-	}
-}
-
-func NoColorPalette() Palette {
-	return Palette{
-		Reset:     "",
-		Bold:      "",
-		Dim:       "",
-		Cyan:      "",
-		Green:     "",
-		Red:       "",
-		Yellow:    "",
-		Italic:    "",
-		Underline: "",
-	}
-}
+// ErrInterrupt é retornado quando o usuário pressiona Ctrl+C.
+var ErrInterrupt = errors.New("user interrupted")
 
 // TUI is the terminal user interface.
 type TUI struct {
 	w             io.Writer
 	r             io.Reader
 	reader        *bufio.Reader
+	term          terminal
+	originalState any
 	verbose       bool
 	showThinking  bool
 	palette       Palette
 	rng           *rand.Rand
 	isHeadless    bool
 	messagePrefix string
+	history       *HistoryManager
 }
 
 func isUTF8Locale() bool {
@@ -87,19 +47,29 @@ func isUTF8Locale() bool {
 		strings.Contains(lcAll, "UTF8")
 }
 
-func (t *TUI) Run(handler func(msg string) (string, agent.AgentStats, error), isMultiline func() bool) error {
+func (t *TUI) Run(ctx context.Context, handler func(ctx context.Context, msg string) (string, agent.AgentStats, error), isMultiline func() bool) error {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Fprintf(os.Stderr, "\n[Panic] Recuperando terminal e encerrando: %v\n", r)
+		}
+	}()
+
 	for {
+		// Check context cancellation
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
 		// Print prompt
 		if !t.isHeadless {
-			if isMultiline != nil && isMultiline() {
-				// No prompt in multiline mode as requested
-			} else {
-				fmt.Fprintf(t.w, "%s%s%s%s %s%s%s ", t.palette.Bold, t.palette.Cyan, "ze", t.palette.Reset, t.palette.Cyan, ">", t.palette.Reset)
-			}
+			fmt.Fprint(t.w, "\r\x1b[K")
+			fmt.Fprintf(t.w, "%s%s%s%s> ", t.palette.Bold, t.palette.Cyan, "ze", t.palette.Reset)
 		}
 
 		// Read input
-		input, err := t.readLine()
+		input, err := t.readInput()
 		if err != nil {
 			return err
 		}
@@ -110,12 +80,22 @@ func (t *TUI) Run(handler func(msg string) (string, agent.AgentStats, error), is
 		}
 
 		// Call handler (LLM)
-		response, stats, err := handler(input)
+		response, stats, err := handler(ctx, input)
 		if err != nil {
 			if errors.Is(err, ErrSkipLine) {
 				continue
 			}
+			if errors.Is(err, ErrInterrupt) {
+				return err
+			}
 			return err
+		}
+
+		// If it was a normal single-line input (not multiline and not empty), add to history
+		if isMultiline == nil || !isMultiline() {
+			if input != "" {
+				t.history.Add(input)
+			}
 		}
 
 		// Display response
@@ -129,6 +109,106 @@ func (t *TUI) Run(handler func(msg string) (string, agent.AgentStats, error), is
 					t.ReportStats(stats)
 				}
 			}
+		}
+	}
+}
+
+// readInput reads a line from stdin byte by byte, handling backspace and enter.
+func (t *TUI) readInput() (string, error) {
+	if t.isHeadless {
+		return t.readLine()
+	}
+
+	buffer := NewInputBuffer()
+
+	for {
+		key, err := ReadKey(t.reader)
+		if err != nil {
+			return "", err
+		}
+
+		width, _ := t.term.getTerminalSize()
+		if width <= 0 {
+			width = 80
+		}
+
+		switch key {
+		case KeyEnter:
+			fmt.Fprint(t.w, "\r\n")
+			return buffer.String(), nil
+		case KeyBackspace:
+			buffer.Backspace()
+		case KeyDelete:
+			buffer.Delete()
+		case KeyLeft:
+			buffer.MoveLeft()
+		case KeyRight:
+			buffer.MoveRight()
+		case KeyHome:
+			buffer.MoveHome()
+		case KeyEnd:
+			buffer.MoveEnd()
+		case KeyUp:
+			if cmd, ok := t.history.Prev(); ok {
+				buffer.SetContent(cmd)
+			}
+		case KeyDown:
+			if cmd, ok := t.history.Next(); ok {
+				buffer.SetContent(cmd)
+			} else {
+				buffer.SetContent("")
+			}
+		case KeyCtrlC:
+			if !t.isHeadless {
+				buffer.Clear()
+				fmt.Fprint(t.w, "\r\x1b[K")
+				return "", ErrInterrupt
+			}
+			buffer.Clear()
+			return "", nil
+		case KeyCtrlL:
+			fmt.Fprintf(t.w, "\x1b[2J\x1b[H")
+		default:
+			if key >= Key(rune(0x10)) { // It's a rune
+				buffer.Insert(rune(key))
+			}
+		}
+
+		// Re-render the line
+		contentLen := buffer.Len()
+		totalLen := 7 + contentLen
+
+		// Calculate current vertical position
+		currentLinesOccupied := (totalLen - 1) / width
+
+		// 1. Move up to the first line of the buffer if we are on a wrapped line
+		if currentLinesOccupied > 0 {
+			fmt.Fprintf(t.w, "\x1b[%dA", currentLinesOccupied)
+			// Clear all lines from the first line to the last line of the buffer
+			for i := 0; i <= currentLinesOccupied; i++ {
+				fmt.Fprint(t.w, "\x1b[2K\r") // Clear current line
+				if i < currentLinesOccupied {
+					fmt.Fprint(t.w, "\x1b[B") // Move down
+				}
+			}
+			// Move back to line 1
+			fmt.Fprint(t.w, "\x1b[A")
+		} else {
+			// Single line
+			fmt.Fprint(t.w, "\r\x1b[K")
+		}
+
+		// 2. Print prompt if not headless
+		if !t.isHeadless {
+			fmt.Fprintf(t.w, "%s%s%s%s> ", t.palette.Bold, t.palette.Cyan, "ze", t.palette.Reset)
+		}
+
+		// 3. Print buffer
+		fmt.Fprintf(t.w, "%s", buffer.String())
+
+		// 4. Move cursor back to cursorPos relative to the buffer start
+		if buffer.CursorPosition() < buffer.Len() {
+			fmt.Fprintf(t.w, "\x1b[%dD", buffer.Len()-buffer.CursorPosition())
 		}
 	}
 }
@@ -177,7 +257,6 @@ func (t *TUI) ReportToolExecution(toolName string, summary string, res tools.Too
 	}
 }
 
-// ReportStatus displays the current status and performance metrics.
 func (t *TUI) ReportStatus(stats agent.AgentStats) {
 	status := stats.Status
 	if status == "" {
@@ -202,6 +281,31 @@ func (t *TUI) ReportStats(stats agent.AgentStats) {
 	t.ReportStatus(stats)
 }
 
+func (t *TUI) ReportReasoning(content string, tokens int) {
+	if t.showThinking && content != "" {
+		fmt.Fprintf(t.w, "\n%s%s%s\n", t.palette.Dim, content, t.palette.Reset)
+	}
+}
+
+func (t *TUI) IsHeadless() bool {
+	return t.isHeadless
+}
+
+// NewTestTUI creates a TUI instance for testing purposes.
+func NewTestTUI(r io.Reader, w io.Writer) *TUI {
+	return &TUI{
+		r:             r,
+		w:             w,
+		reader:        bufio.NewReader(r),
+		term:          newTerminal(),
+		palette:       NoColorPalette(),
+		rng:           rand.New(rand.NewSource(1)),
+		isHeadless:    false,
+		messagePrefix: "* ",
+		history:       NewHistoryManager(100),
+	}
+}
+
 // New creates a new TUI instance.
 func New(verbose bool, showThinking bool, noColor bool) *TUI {
 	EnsureUTF8Terminal()
@@ -222,40 +326,14 @@ func New(verbose bool, showThinking bool, noColor bool) *TUI {
 		w:             os.Stdout,
 		r:             os.Stdin,
 		reader:        bufio.NewReader(os.Stdin),
+		term:          newTerminal(),
 		verbose:       verbose,
 		showThinking:  showThinking,
 		palette:       palette,
 		rng:           rand.New(rand.NewSource(time.Now().UnixNano())),
 		isHeadless:    !isTTY,
 		messagePrefix: "* ",
-	}
-}
-
-// ReportReasoning prints a summary of the reasoning process and the full content if requested.
-func (t *TUI) ReportReasoning(content string, tokens int) {
-	terms := []string{
-		"pura alucinação",
-		"um surto de lógica",
-		"um delírio de silício",
-		"um sonho de robô",
-		"uma epifania de bits",
-		"um erro de sistema elegante",
-		"uma conexão de Wi-Fi espiritual",
-		"um sussurro de processador",
-		"um caos de algoritmos",
-		"uma sinapse de eletricidade",
-		"um salto no escuro digital",
-		"um insight de calculadora",
-		"uma magia de código mal escrito",
-		"um fluxo de dados caótico",
-		"um enigma de bytes",
-		"uma genialidade de baixo nível",
-	}
-
-	term := terms[t.rng.Intn(len(terms))]
-	fmt.Fprintf(t.w, "* %s%s%s%s\n", t.palette.Yellow, "Pensou ", term, t.palette.Reset)
-	if t.showThinking {
-		fmt.Fprintf(t.w, "%s%s%s\n", t.palette.Dim, RenderMarkdown(content, t.markdownStyle()), t.palette.Reset)
+		history:       NewHistoryManager(100),
 	}
 }
 
@@ -268,11 +346,29 @@ func (t *TUI) markdownStyle() Style {
 	}
 }
 
-func (t *TUI) IsHeadless() bool {
-	return t.isHeadless
+func (t *TUI) EnableRawMode() error {
+	if t.isHeadless {
+		return nil
+	}
+	state, err := t.term.enableRawMode()
+	if err != nil {
+		return err
+	}
+	t.originalState = state
+	return nil
 }
 
-func (t *TUI) getTerminalWidth() int {
-	w, _ := getTerminalSize()
-	return w
+func (t *TUI) DisableRawMode() error {
+	if t.originalState == nil {
+		return nil
+	}
+	fmt.Fprintf(os.Stderr, "\n[DEBUG-TUI] DisableRawMode() called. originalState is NOT nil\n")
+	err := t.term.disableRawMode(t.originalState)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "[DEBUG-TUI] Error in term.disableRawMode: %v\n", err)
+	} else {
+		fmt.Fprintf(os.Stderr, "[DEBUG-TUI] term.disableRawMode() returned nil\n")
+	}
+	t.originalState = nil
+	return err
 }
