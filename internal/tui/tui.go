@@ -20,18 +20,19 @@ var ErrInterrupt = errors.New("user interrupted")
 
 // TUI is the terminal user interface.
 type TUI struct {
-	w             io.Writer
-	r             io.Reader
-	reader        *bufio.Reader
-	term          terminal
-	originalState any
-	verbose       bool
-	showThinking  bool
-	palette       Palette
-	rng           *rand.Rand
-	isHeadless    bool
-	messagePrefix string
-	history       *HistoryManager
+	w                 io.Writer
+	r                 io.Reader
+	reader            *bufio.Reader
+	term              terminal
+	originalState     any
+	verbose           bool
+	showThinking      bool
+	palette           Palette
+	rng               *rand.Rand
+	isHeadless        bool
+	messagePrefix     string
+	history           *HistoryManager
+	lastRenderedLines int
 }
 
 func isUTF8Locale() bool {
@@ -40,6 +41,9 @@ func isUTF8Locale() bool {
 	lcCtype := strings.ToUpper(os.Getenv("LC_CTYPE"))
 	return strings.Contains(lang, "UTF-8") || strings.Contains(lcAll, "UTF-8") ||
 		strings.Contains(lcCtype, "UTF-8") ||
+		strings.Contains(lang, "UTF8") ||
+		strings.Contains(lcAll, "UTF8") ||
+		strings.Contains(lcCtype, "UTF8") ||
 		strings.Contains(lang, "UTF8") ||
 		strings.Contains(lcAll, "UTF8") ||
 		strings.Contains(lcCtype, "UTF8") ||
@@ -113,13 +117,21 @@ func (t *TUI) Run(ctx context.Context, handler func(ctx context.Context, msg str
 	}
 }
 
-// readInput reads a line from stdin byte by byte, handling backspace and enter.
+// readInput reads a line from stdin, byte by byte, handling backspace, enter, and line wrapping.
 func (t *TUI) readInput() (string, error) {
 	if t.isHeadless {
 		return t.readLine()
 	}
 
 	buffer := NewInputBuffer()
+	prompt := ""
+	if !t.isHeadless {
+		prompt = fmt.Sprintf("%s%s%s%s> ", t.palette.Bold, t.palette.Cyan, "ze", t.palette.Reset)
+	}
+
+	// Since Run() printed the prompt before calling readInput,
+	// we start with 1 line already rendered.
+	t.lastRenderedLines = 1
 
 	for {
 		key, err := ReadKey(t.reader)
@@ -168,49 +180,76 @@ func (t *TUI) readInput() (string, error) {
 			return "", nil
 		case KeyCtrlL:
 			fmt.Fprintf(t.w, "\x1b[2J\x1b[H")
+			fmt.Fprint(t.w, prompt)
+			t.lastRenderedLines = 1
 		default:
 			if key >= Key(rune(0x10)) { // It's a rune
 				buffer.Insert(rune(key))
 			}
 		}
 
-		// Re-render the line
-		contentLen := buffer.Len()
-		totalLen := 7 + contentLen
+		// --- RE-RENDER LOGIC (BLOCK RENDERING) ---
+		content := buffer.String()
+		lines := t.calculateRenderedLines(prompt, content, width)
 
-		// Calculate current vertical position
-		currentLinesOccupied := (totalLen - 1) / width
+		// 1. Clear the previous render block
+		if t.lastRenderedLines > 0 {
+			// Move up to the top of the block
+			if t.lastRenderedLines > 1 {
+				fmt.Fprintf(t.w, "\x1b[%dA", t.lastRenderedLines-1)
+			}
 
-		// 1. Move up to the first line of the buffer if we are on a wrapped line
-		if currentLinesOccupied > 0 {
-			fmt.Fprintf(t.w, "\x1b[%dA", currentLinesOccupied)
-			// Clear all lines from the first line to the last line of the buffer
-			for i := 0; i <= currentLinesOccupied; i++ {
+			// Clear each line in the block
+			for i := 0; i < t.lastRenderedLines; i++ {
 				fmt.Fprint(t.w, "\x1b[2K\r") // Clear current line
-				if i < currentLinesOccupied {
+				if i < t.lastRenderedLines-1 {
 					fmt.Fprint(t.w, "\x1b[B") // Move down
 				}
 			}
-			// Move back to line 1
-			fmt.Fprint(t.w, "\x1b[A")
-		} else {
-			// Single line
-			fmt.Fprint(t.w, "\r\x1b[K")
+
+			// Return to the top line to redraw everything correctly
+			if t.lastRenderedLines > 1 {
+				fmt.Fprintf(t.w, "\x1b[%dA", t.lastRenderedLines-1)
+			} else {
+				fmt.Fprint(t.w, "\r")
+			}
 		}
 
-		// 2. Print prompt if not headless
+		// 2. Print the new render
 		if !t.isHeadless {
-			fmt.Fprintf(t.w, "%s%s%s%s> ", t.palette.Bold, t.palette.Cyan, "ze", t.palette.Reset)
+			fmt.Fprint(t.w, prompt)
 		}
+		fmt.Fprint(t.w, content)
 
-		// 3. Print buffer
-		fmt.Fprintf(t.w, "%s", buffer.String())
-
-		// 4. Move cursor back to cursorPos relative to the buffer start
+		// 3. Move cursor back to the correct position within the buffer
 		if buffer.CursorPosition() < buffer.Len() {
-			fmt.Fprintf(t.w, "\x1b[%dD", buffer.Len()-buffer.CursorPosition())
+			offset := buffer.Len() - buffer.CursorPosition()
+			fmt.Fprintf(t.w, "\x1b[%dD", offset)
 		}
+
+		t.lastRenderedLines = lines
 	}
+}
+
+// calculateRenderedLines calculates how many lines prompt + content occupies.
+func (t *TUI) calculateRenderedLines(prompt, content string, width int) int {
+	if width <= 0 {
+		width = 80
+	}
+	pWidth := VisibleWidth(prompt)
+	cWidth := VisibleWidth(content)
+
+	if pWidth >= width {
+		return (pWidth + cWidth + width - 1) / width
+	}
+
+	remainingInFirstLine := width - pWidth
+	if cWidth <= remainingInFirstLine {
+		return 1
+	}
+
+	extraChars := cWidth - remainingInFirstLine
+	return 1 + (extraChars+width-1)/width
 }
 
 // readLine reads a line from stdin.
@@ -276,7 +315,6 @@ func (t *TUI) ReportStatus(stats agent.AgentStats) {
 	fmt.Fprintf(t.w, "%s%s%s%s\n", t.palette.Dim, t.messagePrefix, line, t.palette.Reset)
 }
 
-// ReportStats displays performance statistics with a visual delimiter.
 func (t *TUI) ReportStats(stats agent.AgentStats) {
 	t.ReportStatus(stats)
 }
