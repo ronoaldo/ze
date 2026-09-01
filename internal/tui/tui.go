@@ -201,7 +201,7 @@ func (t *TUI) readInput() (string, error) {
 
 			// Clear each line in the block
 			for i := 0; i < t.lastRenderedLines; i++ {
-				fmt.Fprint(t.w, "\x1b[2K\r") // Clear current line
+				fmt.Fprint(t.w, "\r\x1b[K") // Clear current line and move to start
 				if i < t.lastRenderedLines-1 {
 					fmt.Fprint(t.w, "\x1b[B") // Move down
 				}
@@ -210,8 +210,6 @@ func (t *TUI) readInput() (string, error) {
 			// Return to the top line to redraw everything correctly
 			if t.lastRenderedLines > 1 {
 				fmt.Fprintf(t.w, "\x1b[%dA", t.lastRenderedLines-1)
-			} else {
-				fmt.Fprint(t.w, "\r")
 			}
 		}
 
