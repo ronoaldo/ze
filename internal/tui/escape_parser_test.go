@@ -19,7 +19,7 @@ func TestParseEscapeSequence(t *testing.T) {
 		{"Left", "[D", KeyLeft, false},
 		{"Home (H)", "[H", KeyHome, false},
 		{"Home (1~)", "[1~", KeyHome, false},
-		{"Home (F)", "[F", KeyHome, false},
+		{"End (F)", "[F", KeyEnd, false},
 		{"End (G)", "[G", KeyEnd, false},
 		{"End (4~)", "[4~", KeyEnd, false},
 		{"End (L)", "[L", KeyEnd, false},

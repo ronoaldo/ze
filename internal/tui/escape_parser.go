@@ -70,7 +70,7 @@ func ParseEscapeSequence(r *bufio.Reader) (Key, error) {
 	case "1~":
 		return KeyHome, nil
 	case "F":
-		return KeyHome, nil
+		return KeyEnd, nil
 	case "G":
 		return KeyEnd, nil
 	case "4~":
