@@ -16,7 +16,12 @@ while true ; do
 		echo "Detectamos um erro de execução"
 	fi
 
+	echo
 	echo "Execução não concluída, retomando em 5 segundos ..."
+	git add .
+	git status --short
+	echo
+
 	sleep 5
 done
 
