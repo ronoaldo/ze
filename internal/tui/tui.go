@@ -398,13 +398,10 @@ func (t *TUI) DisableRawMode() error {
 	if t.originalState == nil {
 		return nil
 	}
-	fmt.Fprintf(os.Stderr, "\n[DEBUG-TUI] DisableRawMode() called. originalState is NOT nil\n")
 	err := t.term.disableRawMode(t.originalState)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "[DEBUG-TUI] Error in term.disableRawMode: %v\n", err)
-	} else {
-		fmt.Fprintf(os.Stderr, "[DEBUG-TUI] term.disableRawMode() returned nil\n")
+		return err
 	}
 	t.originalState = nil
-	return err
+	return nil
 }

@@ -3,7 +3,6 @@
 package tui
 
 import (
-	"fmt"
 	"os"
 	"syscall"
 	"unsafe"
@@ -62,12 +61,9 @@ func (p *platformTerminal) disableRawMode(original any) error {
 	}
 
 	fd := int(os.Stdin.Fd())
-	fmt.Fprintf(os.Stderr, "\n[DEBUG-SYS] Starting syscall tcsetattr on fd %d\n", fd)
 	if _, _, err := syscall.Syscall(syscall.SYS_IOCTL, uintptr(fd), tcsetattr, uintptr(unsafe.Pointer(orig))); err != 0 {
-		fmt.Fprintf(os.Stderr, "[DEBUG-SYS] syscall error: %v\n", err)
 		return err
 	}
-	fmt.Fprintf(os.Stderr, "[DEBUG-SYS] syscall tcsetattr successful\n")
 	return nil
 }
 
