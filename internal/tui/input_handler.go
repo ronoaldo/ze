@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -18,13 +19,13 @@ type InputHandler struct {
 	multilineBuffer strings.Builder
 	// Dependencies injected for testability.
 	commandExecutor func(a *agent.Agent, input string) (string, error)
-	agentExecutor   func(string) (string, agent.AgentStats, error)
+	agentExecutor   func(ctx context.Context, input string) (string, agent.AgentStats, error)
 }
 
 // NewInputHandler creates a new instance of InputHandler.
 func NewInputHandler(
 	commandExecutor func(a *agent.Agent, input string) (string, error),
-	agentExecutor func(string) (string, agent.AgentStats, error),
+	agentExecutor func(ctx context.Context, input string) (string, agent.AgentStats, error),
 ) *InputHandler {
 	return &InputHandler{
 		commandExecutor: commandExecutor,
@@ -39,14 +40,14 @@ func (h *InputHandler) IsMultiline() bool {
 
 // Process handles a single line of input and returns the response, stats, and error.
 // In multiline mode, it accumulates input until "/send" is received.
-func (h *InputHandler) Process(a *agent.Agent, input string) (string, agent.AgentStats, error) {
+func (h *InputHandler) Process(ctx context.Context, a *agent.Agent, input string) (string, agent.AgentStats, error) {
 	if h.isMultiline {
 		// Modo Multiline
 		if strings.HasPrefix(input, "/send") {
 			content := h.multilineBuffer.String()
 			h.multilineBuffer.Reset()
 			h.isMultiline = false
-			return h.agentExecutor(content)
+			return h.agentExecutor(ctx, content)
 		}
 
 		// Acumula o conteúdo
@@ -87,5 +88,5 @@ func (h *InputHandler) Process(a *agent.Agent, input string) (string, agent.Agen
 	}
 
 	// 5. Caso contrário, é uma mensagem para o agente
-	return h.agentExecutor(input)
+	return h.agentExecutor(ctx, input)
 }

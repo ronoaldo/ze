@@ -1,14 +1,17 @@
 package main
 
 import (
+	"context"
 	_ "embed"
 	"errors"
 	"flag"
 	"fmt"
 	"io"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/ronoaldo/ze/internal/agent"
@@ -98,17 +101,29 @@ func ParseConfig(args []string, env map[string]string) (*Config, error) {
 }
 
 func main() {
+	err := run()
+	if err != nil {
+		// Se for um encerramento esperado, terminamos naturalmente para permitir que os defers de run() concluam.
+		if errors.Is(err, commands.ErrQuit) || errors.Is(err, io.EOF) || errors.Is(err, context.Canceled) || errors.Is(err, tui.ErrInterrupt) {
+			return
+		}
+		fmt.Fprintf(os.Stderr, "\nError: %v\n", err)
+		os.Exit(1)
+	}
+}
+
+func run() error {
 	cfg, err := ParseConfig(os.Args[1:], osEnvironAsMap())
 	if err != nil {
 		if !strings.Contains(err.Error(), "flag has no usage") && !strings.Contains(err.Error(), "help") {
 			fmt.Fprintf(os.Stderr, "Error parsing flags: %v\n", err)
 		}
-		os.Exit(1)
+		return err
 	}
 
 	if cfg.Version {
 		fmt.Printf("ze version %s\ncommit: %s\ndate: %s\n", version, commit, date)
-		return
+		return nil
 	}
 
 	client := llm.NewLlamaServerClient(cfg.URL, cfg.Timeout, cfg.VerboseAPICalls)
@@ -143,28 +158,24 @@ func main() {
 	if baseDir == "" {
 		home, err := os.UserHomeDir()
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error getting user home: %v\n", err)
-			os.Exit(1)
+			return fmt.Errorf("Error getting user home: %w", err)
 		}
 		baseDir = filepath.Join(home, ".config", "ze")
 	}
 	logger, err := agent.NewFileLogger(baseDir)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error initializing logger: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("Error initializing logger: %w", err)
 	}
 	defer logger.Close()
 
 	sm, err := agent.NewSessionManager()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error initializing session manager: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("Error initializing session manager: %w", err)
 	}
 
 	sessionID, err := sm.GenerateSessionID()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error generating session ID: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("Error generating session ID: %w", err)
 	}
 
 	if cfg.SessionID != "" {
@@ -183,6 +194,19 @@ func main() {
 		agent.WithReporter(t),
 	)
 
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Register signal handler
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-sigChan
+		t.DisableRawMode()
+		fmt.Println("\nExiting...")
+		cancel()
+	}()
+
 	if cfg.SessionID != "" {
 		history, err := sm.LoadSession(cfg.SessionID)
 		if err != nil {
@@ -196,9 +220,12 @@ func main() {
 
 	inputHandler := tui.NewInputHandler(
 		commands.ExecuteCommand,
-		func(input string) (string, agent.AgentStats, error) {
-			res, stats, llmErr := zeAgent.Run(input)
+		func(ctx context.Context, input string) (string, agent.AgentStats, error) {
+			res, stats, llmErr := zeAgent.Run(ctx, input)
 			if llmErr != nil {
+				if errors.Is(llmErr, tui.ErrInterrupt) {
+					return "", stats, llmErr
+				}
 				return fmt.Sprintf("Error: %v", llmErr), stats, nil
 			}
 			return res, stats, nil
@@ -206,23 +233,25 @@ func main() {
 	)
 
 	if !t.IsHeadless() {
-		printNeofetch(modelName, cfg, sessionID)
+		if err := t.EnableRawMode(); err != nil {
+			return fmt.Errorf("Error enabling raw mode: %w", err)
+		}
+		defer t.DisableRawMode()
 	}
 
-	err = t.Run(func(msg string) (string, agent.AgentStats, error) {
-		return inputHandler.Process(zeAgent, msg)
+	// Print banner
+	if !t.IsHeadless() {
+		printNeofetch(os.Stdout, modelName, cfg, sessionID)
+	}
+
+	err = t.Run(ctx, func(ctx context.Context, msg string) (string, agent.AgentStats, error) {
+		return inputHandler.Process(ctx, zeAgent, msg)
 	}, inputHandler.IsMultiline)
 
-	if err != nil {
-		if errors.Is(err, commands.ErrQuit) || errors.Is(err, io.EOF) {
-			os.Exit(0)
-		}
-		fmt.Fprintf(os.Stderr, "\nError: %v\n", err)
-		os.Exit(1)
-	}
+	return err
 }
 
-func printNeofetch(modelName string, cfg *Config, sessionID string) {
+func printNeofetch(w io.Writer, modelName string, cfg *Config, sessionID string) {
 	info := []string{
 		fmt.Sprintf("Model:       %s", modelName),
 		fmt.Sprintf("Server:      %s", cfg.URL),
@@ -232,10 +261,9 @@ func printNeofetch(modelName string, cfg *Config, sessionID string) {
 		fmt.Sprintf("Session:     %s", sessionID),
 	}
 
-	fmt.Fprintln(os.Stderr, "")
+	fmt.Fprintln(w, "")
 
 	logoLines := strings.Split(logoEmbed, "\n")
-
 	if len(logoLines) > 0 && logoLines[len(logoLines)-1] == "" {
 		logoLines = logoLines[:len(logoLines)-1]
 	}
@@ -246,25 +274,28 @@ func printNeofetch(modelName string, cfg *Config, sessionID string) {
 	}
 
 	for i := 0; i < maxLines; i++ {
+		// Print logo line
 		if i < len(logoLines) {
 			line := logoLines[i]
-			fmt.Fprint(os.Stderr, line)
-			if len(line) < 20 {
-				fmt.Fprint(os.Stderr, strings.Repeat(" ", 20-len(line)))
-			} else {
-				fmt.Fprint(os.Stderr, "  ")
+			fmt.Fprint(w, line)
+			padding := 20 - len(line)
+			if padding > 0 {
+				fmt.Fprint(w, strings.Repeat(" ", padding))
+			} else if padding < 0 {
+				fmt.Fprint(w, "  ")
 			}
 		} else {
-			fmt.Fprint(os.Stderr, "                      ")
+			fmt.Fprint(w, "                      ")
 		}
 
+		// Print info line
 		if i < len(info) {
-			fmt.Fprintln(os.Stderr, info[i])
+			fmt.Fprintln(w, info[i])
 		} else {
-			fmt.Fprintln(os.Stderr, "")
+			fmt.Fprintln(w, "")
 		}
 	}
-	fmt.Fprintln(os.Stderr, "")
+	fmt.Fprintln(w, "")
 }
 
 func selectModel(availableModels []llm.ModelInfo, userModel string) string {

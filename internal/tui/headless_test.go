@@ -3,6 +3,7 @@ package tui
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"io"
 	"strings"
 	"testing"
@@ -23,11 +24,11 @@ func TestTUI_HeadlessPrompt(t *testing.T) {
 		isHeadless: true,
 	}
 
-	handler := func(msg string) (string, agent.AgentStats, error) {
+	handler := func(ctx context.Context, msg string) (string, agent.AgentStats, error) {
 		return "", agent.AgentStats{}, io.EOF
 	}
 
-	err := tui.Run(handler, nil)
+	err := tui.Run(context.Background(), handler, nil)
 	if err != nil && err != io.EOF {
 		t.Fatalf("expected EOF, got %v", err)
 	}
@@ -59,11 +60,11 @@ func TestTUI_HeadlessEcho(t *testing.T) {
 		isHeadless: true,
 	}
 
-	handler := func(msg string) (string, agent.AgentStats, error) {
+	handler := func(ctx context.Context, msg string) (string, agent.AgentStats, error) {
 		return "response", agent.AgentStats{}, io.EOF
 	}
 
-	err := tui.Run(handler, nil)
+	err := tui.Run(context.Background(), handler, nil)
 	if err != nil && err != io.EOF {
 		t.Fatalf("expected EOF, got %v", err)
 	}
@@ -87,11 +88,11 @@ func TestTUI_HeadlessEOF(t *testing.T) {
 		isHeadless: true,
 	}
 
-	handler := func(msg string) (string, agent.AgentStats, error) {
+	handler := func(ctx context.Context, msg string) (string, agent.AgentStats, error) {
 		return "", agent.AgentStats{}, nil
 	}
 
-	err := tui.Run(handler, nil)
+	err := tui.Run(context.Background(), handler, nil)
 	if err != io.EOF {
 		t.Errorf("expected EOF, got %v", err)
 	}

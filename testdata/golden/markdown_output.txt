@@ -1,0 +1,9 @@
+[1m[4mTest Header[0m
+[1mBold Text[0m
+[3mItalic Text[0m
+[4mUnderline Text[0m
+
+| Column 1 | Column 2 |
+| ---      | ---      |
+| Cell 1   | Cell 2   |
+| Cell 3   | Cell 4   |

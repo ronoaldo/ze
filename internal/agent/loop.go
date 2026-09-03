@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -152,7 +153,7 @@ func (a *Agent) SetModel(modelName string) error {
 }
 
 // Run processes a user message and returns the agent's response, stats, or an error.
-func (a *Agent) Run(userInput string) (string, AgentStats, error) {
+func (a *Agent) Run(ctx context.Context, userInput string) (string, AgentStats, error) {
 	startTime := time.Now()
 
 	if a.Logger != nil && a.SessionID != "" {
@@ -199,6 +200,13 @@ func (a *Agent) Run(userInput string) (string, AgentStats, error) {
 	// 4. Multi-step loop
 	var lastResp *llm.ChatResponse
 	for i := 0; i < a.MaxIteration; i++ {
+		// Check if context is cancelled
+		select {
+		case <-ctx.Done():
+			return "", AgentStats{}, ctx.Err()
+		default:
+		}
+
 		req := a.prepareRequest()
 		if a.Logger != nil {
 			a.Logger.LogLLMRequest(req)

@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"context"
 	"encoding/json"
 	"strings"
 	"testing"
@@ -72,7 +73,7 @@ func TestAgent_Run_ShellCommand(t *testing.T) {
 	a := NewAgent(mockClient, "test-model", nil, WithLogger(&MockLogger{}), WithMaxIteration(5))
 
 	// 1. Execute shell command
-	output, _, err := a.Run("!echo hello")
+	output, _, err := a.Run(context.Background(), "!echo hello")
 	if err != nil {
 		t.Fatalf("Expected no error, got %v", err)
 	}
@@ -92,7 +93,7 @@ func TestAgent_Run_ShellCommand(t *testing.T) {
 		return createChatResponse(llm.ChatMessage{Content: "Response"}), nil
 	}
 
-	_, _, err = a.Run("What was the command?")
+	_, _, err = a.Run(context.Background(), "What was the command?")
 	if err != nil {
 		t.Fatalf("Expected no error, got %v", err)
 	}
@@ -112,7 +113,7 @@ func TestAgent_Run_NoCommand(t *testing.T) {
 
 	a := NewAgent(mockClient, "test-model", nil, WithLogger(&MockLogger{}), WithMaxIteration(5))
 
-	_, _, err := a.Run("Just a normal message")
+	_, _, err := a.Run(context.Background(), "Just a normal message")
 	if err != nil {
 		t.Fatalf("Expected no error, got %v", err)
 	}
@@ -134,7 +135,7 @@ func TestAgent_Run_NoToolCall_ReturnsDirectAnswer(t *testing.T) {
 
 	a := NewAgent(mockClient, "test-model", nil, WithLogger(&MockLogger{}), WithMaxIteration(5))
 
-	resp, _, err := a.Run("Say hi")
+	resp, _, err := a.Run(context.Background(), "Say hi")
 	if err != nil {
 		t.Fatalf("Expected no error, got %v", err)
 	}
@@ -189,7 +190,7 @@ func TestAgent_Run_WithToolCall_ReCallsLLM(t *testing.T) {
 
 	a := NewAgent(mockClient, "test-model", []tools.Tool{mockTool}, WithLogger(&MockLogger{}), WithMaxIteration(5))
 
-	resp, _, err := a.Run("Use the tool")
+	resp, _, err := a.Run(context.Background(), "Use the tool")
 	if err != nil {
 		t.Fatalf("Expected no error, got %v", err)
 	}
@@ -242,7 +243,7 @@ func TestAgent_Run_MaxIterations_WhenOnlyToolCalls(t *testing.T) {
 	// Limit to 2 iterations
 	a := NewAgent(mockClient, "test-model", []tools.Tool{mockTool}, WithLogger(&MockLogger{}), WithMaxIteration(2))
 
-	_, _, err := a.Run("Keep using tool")
+	_, _, err := a.Run(context.Background(), "Keep using tool")
 	if err == nil {
 		t.Fatal("Expected error due to max iterations, but got nil")
 	}
@@ -310,7 +311,7 @@ func TestAgent_Run_MultipleToolCallsInOneResponse(t *testing.T) {
 
 	a := NewAgent(mockClient, "test-model", []tools.Tool{tool1, tool2}, WithLogger(&MockLogger{}), WithMaxIteration(5))
 
-	resp, _, err := a.Run("Use both")
+	resp, _, err := a.Run(context.Background(), "Use both")
 	if err != nil {
 		t.Fatalf("Expected no error, got %v", err)
 	}
@@ -370,7 +371,7 @@ func TestAgent_Run_ToolCallID_Is_Correctly_Set(t *testing.T) {
 
 	a := NewAgent(mockClient, "test-model", []tools.Tool{mockTool}, WithLogger(&MockLogger{}), WithMaxIteration(5))
 
-	_, _, err := a.Run("Use tool")
+	_, _, err := a.Run(context.Background(), "Use tool")
 	if err != nil {
 		t.Fatalf("Expected no error, got %v", err)
 	}

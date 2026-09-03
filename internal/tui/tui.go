@@ -2,12 +2,12 @@ package tui
 
 import (
 	"bufio"
+	"context"
 	"errors"
 	"fmt"
 	"io"
 	"math/rand"
 	"os"
-	"regexp"
 	"strings"
 	"time"
 
@@ -15,63 +15,24 @@ import (
 	"github.com/ronoaldo/ze/internal/tools"
 )
 
-var (
-	reInserts = regexp.MustCompile(`(\d+)\s+insertions?\(?\+?\)?`)
-	reDeletes = regexp.MustCompile(`(\d+)\s+deletions?\(?\-?\)?`)
-)
-
-// Palette defines the colors used in the TUI.
-type Palette struct {
-	Reset     string
-	Bold      string
-	Dim       string
-	Cyan      string
-	Green     string
-	Red       string
-	Yellow    string
-	Italic    string
-	Underline string
-}
-
-func DefaultPalette() Palette {
-	return Palette{
-		Reset:     "\x1b[0m",
-		Bold:      "\x1b[1m",
-		Dim:       "\x1b[2m",
-		Cyan:      "\x1b[36m",
-		Green:     "\x1b[32m",
-		Red:       "\x1b[31m",
-		Yellow:    "\x1b[33m",
-		Italic:    "\x1b[3m",
-		Underline: "\x1b[4m",
-	}
-}
-
-func NoColorPalette() Palette {
-	return Palette{
-		Reset:     "",
-		Bold:      "",
-		Dim:       "",
-		Cyan:      "",
-		Green:     "",
-		Red:       "",
-		Yellow:    "",
-		Italic:    "",
-		Underline: "",
-	}
-}
+// ErrInterrupt é retornado quando o usuário pressiona Ctrl+C.
+var ErrInterrupt = errors.New("user interrupted")
 
 // TUI is the terminal user interface.
 type TUI struct {
-	w             io.Writer
-	r             io.Reader
-	reader        *bufio.Reader
-	verbose       bool
-	showThinking  bool
-	palette       Palette
-	rng           *rand.Rand
-	isHeadless    bool
-	messagePrefix string
+	w                 io.Writer
+	r                 io.Reader
+	reader            *bufio.Reader
+	term              terminal
+	originalState     any
+	verbose           bool
+	showThinking      bool
+	palette           Palette
+	rng               *rand.Rand
+	isHeadless        bool
+	messagePrefix     string
+	history           *HistoryManager
+	lastRenderedLines int
 }
 
 func isUTF8Locale() bool {
@@ -84,22 +45,35 @@ func isUTF8Locale() bool {
 		strings.Contains(lcAll, "UTF8") ||
 		strings.Contains(lcCtype, "UTF8") ||
 		strings.Contains(lang, "UTF8") ||
+		strings.Contains(lcAll, "UTF8") ||
+		strings.Contains(lcCtype, "UTF8") ||
+		strings.Contains(lang, "UTF8") ||
 		strings.Contains(lcAll, "UTF8")
 }
 
-func (t *TUI) Run(handler func(msg string) (string, agent.AgentStats, error), isMultiline func() bool) error {
+func (t *TUI) Run(ctx context.Context, handler func(ctx context.Context, msg string) (string, agent.AgentStats, error), isMultiline func() bool) error {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Fprintf(os.Stderr, "\n[Panic] Recuperando terminal e encerrando: %v\n", r)
+		}
+	}()
+
 	for {
+		// Check context cancellation
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
 		// Print prompt
 		if !t.isHeadless {
-			if isMultiline != nil && isMultiline() {
-				// No prompt in multiline mode as requested
-			} else {
-				fmt.Fprintf(t.w, "%s%s%s%s %s%s%s ", t.palette.Bold, t.palette.Cyan, "ze", t.palette.Reset, t.palette.Cyan, ">", t.palette.Reset)
-			}
+			fmt.Fprint(t.w, "\r\x1b[K")
+			fmt.Fprintf(t.w, "%s%s%s%s> ", t.palette.Bold, t.palette.Cyan, "ze", t.palette.Reset)
 		}
 
 		// Read input
-		input, err := t.readLine()
+		input, err := t.readInput()
 		if err != nil {
 			return err
 		}
@@ -110,12 +84,22 @@ func (t *TUI) Run(handler func(msg string) (string, agent.AgentStats, error), is
 		}
 
 		// Call handler (LLM)
-		response, stats, err := handler(input)
+		response, stats, err := handler(ctx, input)
 		if err != nil {
 			if errors.Is(err, ErrSkipLine) {
 				continue
 			}
+			if errors.Is(err, ErrInterrupt) {
+				return err
+			}
 			return err
+		}
+
+		// If it was a normal single-line input (not multiline and not empty), add to history
+		if isMultiline == nil || !isMultiline() {
+			if input != "" {
+				t.history.Add(input)
+			}
 		}
 
 		// Display response
@@ -131,6 +115,139 @@ func (t *TUI) Run(handler func(msg string) (string, agent.AgentStats, error), is
 			}
 		}
 	}
+}
+
+// readInput reads a line from stdin, byte by byte, handling backspace, enter, and line wrapping.
+func (t *TUI) readInput() (string, error) {
+	if t.isHeadless {
+		return t.readLine()
+	}
+
+	buffer := NewInputBuffer()
+	prompt := ""
+	if !t.isHeadless {
+		prompt = fmt.Sprintf("%s%s%s%s> ", t.palette.Bold, t.palette.Cyan, "ze", t.palette.Reset)
+	}
+
+	// Since Run() printed the prompt before calling readInput,
+	// we start with 1 line already rendered.
+	t.lastRenderedLines = 1
+
+	for {
+		key, err := ReadKey(t.reader)
+		if err != nil {
+			return "", err
+		}
+
+		width, _ := t.term.getTerminalSize()
+		if width <= 0 {
+			width = 80
+		}
+
+		switch key {
+		case KeyEnter:
+			fmt.Fprint(t.w, "\r\n")
+			return buffer.String(), nil
+		case KeyBackspace:
+			buffer.Backspace()
+		case KeyDelete:
+			buffer.Delete()
+		case KeyLeft:
+			buffer.MoveLeft()
+		case KeyRight:
+			buffer.MoveRight()
+		case KeyHome:
+			buffer.MoveHome()
+		case KeyEnd:
+			buffer.MoveEnd()
+		case KeyUp:
+			if cmd, ok := t.history.Prev(); ok {
+				buffer.SetContent(cmd)
+			}
+		case KeyDown:
+			if cmd, ok := t.history.Next(); ok {
+				buffer.SetContent(cmd)
+			} else {
+				buffer.SetContent("")
+			}
+		case KeyCtrlC:
+			if !t.isHeadless {
+				buffer.Clear()
+				fmt.Fprint(t.w, "\r\x1b[K")
+				return "", ErrInterrupt
+			}
+			buffer.Clear()
+			return "", nil
+		case KeyCtrlL:
+			fmt.Fprintf(t.w, "\x1b[2J\x1b[H")
+			fmt.Fprint(t.w, prompt)
+			t.lastRenderedLines = 1
+		default:
+			if key >= Key(rune(0x10)) { // It's a rune
+				buffer.Insert(rune(key))
+			}
+		}
+
+		// --- RE-RENDER LOGIC (BLOCK RENDERING) ---
+		content := buffer.String()
+		lines := t.calculateRenderedLines(prompt, content, width)
+
+		// 1. Clear the previous render block
+		if t.lastRenderedLines > 0 {
+			// Move up to the top of the block
+			if t.lastRenderedLines > 1 {
+				fmt.Fprintf(t.w, "\x1b[%dA", t.lastRenderedLines-1)
+			}
+
+			// Clear each line in the block
+			for i := 0; i < t.lastRenderedLines; i++ {
+				fmt.Fprint(t.w, "\r\x1b[K") // Clear current line and move to start
+				if i < t.lastRenderedLines-1 {
+					fmt.Fprint(t.w, "\x1b[B") // Move down
+				}
+			}
+
+			// Return to the top line to redraw everything correctly
+			if t.lastRenderedLines > 1 {
+				fmt.Fprintf(t.w, "\x1b[%dA", t.lastRenderedLines-1)
+			}
+		}
+
+		// 2. Print the new render
+		if !t.isHeadless {
+			fmt.Fprint(t.w, prompt)
+		}
+		fmt.Fprint(t.w, content)
+
+		// 3. Move cursor back to the correct position within the buffer
+		if buffer.CursorPosition() < buffer.Len() {
+			offset := buffer.Len() - buffer.CursorPosition()
+			fmt.Fprintf(t.w, "\x1b[%dD", offset)
+		}
+
+		t.lastRenderedLines = lines
+	}
+}
+
+// calculateRenderedLines calculates how many lines prompt + content occupies.
+func (t *TUI) calculateRenderedLines(prompt, content string, width int) int {
+	if width <= 0 {
+		width = 80
+	}
+	pWidth := VisibleWidth(prompt)
+	cWidth := VisibleWidth(content)
+
+	if pWidth >= width {
+		return (pWidth + cWidth + width - 1) / width
+	}
+
+	remainingInFirstLine := width - pWidth
+	if cWidth <= remainingInFirstLine {
+		return 1
+	}
+
+	extraChars := cWidth - remainingInFirstLine
+	return 1 + (extraChars+width-1)/width
 }
 
 // readLine reads a line from stdin.
@@ -177,7 +294,6 @@ func (t *TUI) ReportToolExecution(toolName string, summary string, res tools.Too
 	}
 }
 
-// ReportStatus displays the current status and performance metrics.
 func (t *TUI) ReportStatus(stats agent.AgentStats) {
 	status := stats.Status
 	if status == "" {
@@ -197,9 +313,33 @@ func (t *TUI) ReportStatus(stats agent.AgentStats) {
 	fmt.Fprintf(t.w, "%s%s%s%s\n", t.palette.Dim, t.messagePrefix, line, t.palette.Reset)
 }
 
-// ReportStats displays performance statistics with a visual delimiter.
 func (t *TUI) ReportStats(stats agent.AgentStats) {
 	t.ReportStatus(stats)
+}
+
+func (t *TUI) ReportReasoning(content string, tokens int) {
+	if t.showThinking && content != "" {
+		fmt.Fprintf(t.w, "\n%s%s%s\n", t.palette.Dim, content, t.palette.Reset)
+	}
+}
+
+func (t *TUI) IsHeadless() bool {
+	return t.isHeadless
+}
+
+// NewTestTUI creates a TUI instance for testing purposes.
+func NewTestTUI(r io.Reader, w io.Writer) *TUI {
+	return &TUI{
+		r:             r,
+		w:             w,
+		reader:        bufio.NewReader(r),
+		term:          newTerminal(),
+		palette:       NoColorPalette(),
+		rng:           rand.New(rand.NewSource(1)),
+		isHeadless:    false,
+		messagePrefix: "* ",
+		history:       NewHistoryManager(100),
+	}
 }
 
 // New creates a new TUI instance.
@@ -222,40 +362,14 @@ func New(verbose bool, showThinking bool, noColor bool) *TUI {
 		w:             os.Stdout,
 		r:             os.Stdin,
 		reader:        bufio.NewReader(os.Stdin),
+		term:          newTerminal(),
 		verbose:       verbose,
 		showThinking:  showThinking,
 		palette:       palette,
 		rng:           rand.New(rand.NewSource(time.Now().UnixNano())),
 		isHeadless:    !isTTY,
 		messagePrefix: "* ",
-	}
-}
-
-// ReportReasoning prints a summary of the reasoning process and the full content if requested.
-func (t *TUI) ReportReasoning(content string, tokens int) {
-	terms := []string{
-		"pura alucinação",
-		"um surto de lógica",
-		"um delírio de silício",
-		"um sonho de robô",
-		"uma epifania de bits",
-		"um erro de sistema elegante",
-		"uma conexão de Wi-Fi espiritual",
-		"um sussurro de processador",
-		"um caos de algoritmos",
-		"uma sinapse de eletricidade",
-		"um salto no escuro digital",
-		"um insight de calculadora",
-		"uma magia de código mal escrito",
-		"um fluxo de dados caótico",
-		"um enigma de bytes",
-		"uma genialidade de baixo nível",
-	}
-
-	term := terms[t.rng.Intn(len(terms))]
-	fmt.Fprintf(t.w, "* %s%s%s%s\n", t.palette.Yellow, "Pensou ", term, t.palette.Reset)
-	if t.showThinking {
-		fmt.Fprintf(t.w, "%s%s%s\n", t.palette.Dim, RenderMarkdown(content, t.markdownStyle()), t.palette.Reset)
+		history:       NewHistoryManager(100),
 	}
 }
 
@@ -268,11 +382,26 @@ func (t *TUI) markdownStyle() Style {
 	}
 }
 
-func (t *TUI) IsHeadless() bool {
-	return t.isHeadless
+func (t *TUI) EnableRawMode() error {
+	if t.isHeadless {
+		return nil
+	}
+	state, err := t.term.enableRawMode()
+	if err != nil {
+		return err
+	}
+	t.originalState = state
+	return nil
 }
 
-func (t *TUI) getTerminalWidth() int {
-	w, _ := getTerminalSize()
-	return w
+func (t *TUI) DisableRawMode() error {
+	if t.originalState == nil {
+		return nil
+	}
+	err := t.term.disableRawMode(t.originalState)
+	if err != nil {
+		return err
+	}
+	t.originalState = nil
+	return nil
 }
