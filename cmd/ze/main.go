@@ -27,8 +27,8 @@ var logoEmbed string
 // Default configuration values
 const (
 	DefaultURL          = "http://localhost:1234"
-	DefaultTimeoutStr   = "5m"
-	DefaultMaxIteration = 50
+	DefaultTimeoutStr   = "10m"
+	DefaultMaxIteration = 100
 )
 
 // Version metadata injected by GoReleaser ldflags.
@@ -103,8 +103,12 @@ func ParseConfig(args []string, env map[string]string) (*Config, error) {
 func main() {
 	err := run()
 	if err != nil {
-		// Se for um encerramento esperado, terminamos naturalmente para permitir que os defers de run() concluam.
-		if errors.Is(err, commands.ErrQuit) || errors.Is(err, io.EOF) || errors.Is(err, context.Canceled) || errors.Is(err, tui.ErrInterrupt) {
+		// Se for um encerramento esperado, terminamos naturalmente para
+		// permitir que os defers de run() concluam.
+		if errors.Is(err, commands.ErrQuit) ||
+			errors.Is(err, io.EOF) ||
+			errors.Is(err, context.Canceled) ||
+			errors.Is(err, tui.ErrInterrupt) {
 			return
 		}
 		fmt.Fprintf(os.Stderr, "\nError: %v\n", err)
@@ -252,13 +256,17 @@ func run() error {
 }
 
 func printNeofetch(w io.Writer, modelName string, cfg *Config, sessionID string) {
+	modelNameToPrint := modelName
+	if modelName == "" {
+		modelNameToPrint = "(unset: use /models to view options)"
+	}
 	info := []string{
-		fmt.Sprintf("Model:       %s", modelName),
-		fmt.Sprintf("Server:      %s", cfg.URL),
-		fmt.Sprintf("Timeout:     %s", cfg.Timeout),
-		fmt.Sprintf("Verbose:     %v", cfg.Verbose),
-		fmt.Sprintf("API Verbose: %v", cfg.VerboseAPICalls),
 		fmt.Sprintf("Session:     %s", sessionID),
+		fmt.Sprintf("Model:       %s", modelNameToPrint),
+		fmt.Sprintf("Server:      %s", cfg.URL),
+		fmt.Sprintf("Options:"),
+		fmt.Sprintf("  timeout=%v, show_thinking=%v", cfg.Timeout, cfg.ShowThinking),
+		fmt.Sprintf("  verbose=%v, api_verbose=%v", cfg.Verbose, cfg.VerboseAPICalls),
 	}
 
 	fmt.Fprintln(w, "")
