@@ -20,19 +20,21 @@ var ErrInterrupt = errors.New("user interrupted")
 
 // TUI is the terminal user interface.
 type TUI struct {
-	w                 io.Writer
-	r                 io.Reader
-	reader            *bufio.Reader
-	term              terminal
-	originalState     any
-	verbose           bool
-	showThinking      bool
-	palette           Palette
-	rng               *rand.Rand
-	isHeadless        bool
-	messagePrefix     string
-	history           *HistoryManager
+	w             io.Writer
+	r             io.Reader
+	reader        *bufio.Reader
+	term          terminal
+	originalState any
+	verbose       bool
+	showThinking  bool
+	palette       Palette
+	rng           *rand.Rand
+	isHeadless    bool
+	messagePrefix string
+	history       *HistoryManager
+
 	lastRenderedLines int
+	lastCursorRow     int
 }
 
 func isUTF8Locale() bool {
@@ -132,12 +134,14 @@ func (t *TUI) readInput() (string, error) {
 	// Since Run() printed the prompt before calling readInput,
 	// we start with 1 line already rendered.
 	t.lastRenderedLines = 1
+	t.lastCursorRow = 0
 
 	for {
 		key, err := ReadKey(t.reader)
 		if err != nil {
 			return "", err
 		}
+		isMovingKey := false
 
 		width, _ := t.term.getTerminalSize()
 		if width <= 0 {
@@ -154,12 +158,16 @@ func (t *TUI) readInput() (string, error) {
 			buffer.Delete()
 		case KeyLeft:
 			buffer.MoveLeft()
+			isMovingKey = true
 		case KeyRight:
 			buffer.MoveRight()
+			isMovingKey = true
 		case KeyHome:
 			buffer.MoveHome()
+			isMovingKey = true
 		case KeyEnd:
 			buffer.MoveEnd()
+			isMovingKey = true
 		case KeyUp:
 			if cmd, ok := t.history.Prev(); ok {
 				buffer.SetContent(cmd)
@@ -168,6 +176,7 @@ func (t *TUI) readInput() (string, error) {
 			if cmd, ok := t.history.Next(); ok {
 				buffer.SetContent(cmd)
 			} else {
+				// TODO(ronoaldo) return the current string in the buffer to avoid removing what we typed aleady
 				buffer.SetContent("")
 			}
 		case KeyCtrlC:
@@ -193,24 +202,25 @@ func (t *TUI) readInput() (string, error) {
 		row, col := t.getCursorRelativePosition(prompt, content, width, buffer.CursorPosition())
 
 		// 1. Clear the previous render block
-		if t.lastRenderedLines > 0 {
-			// Move to the top of the block
-			if row > 1 {
-				fmt.Fprintf(t.w, "\x1b[%dA", row-1)
-			}
 
-			// Clear each line in the block
-			for i := 0; i < t.lastRenderedLines; i++ {
-				fmt.Fprint(t.w, "\r\x1b[K")
-				if i < t.lastRenderedLines-1 {
-					fmt.Fprint(t.w, "\x1b[B")
-				}
+		// Move to the top of the block
+		if t.lastRenderedLines > 1 {
+			// lastCursorRow is the current row, if not 0 need to move up
+			if t.lastCursorRow > 0 {
+				moveUpLines := t.lastRenderedLines - t.lastCursorRow
+				fmt.Fprintf(t.w, "\x1b[%dA", moveUpLines)
 			}
-
-			// Return to the top line of the block
-			if t.lastRenderedLines > 1 {
-				fmt.Fprintf(t.w, "\x1b[%dA", t.lastRenderedLines-1)
+		}
+		// Clear each line in the block
+		for i := 0; i < t.lastRenderedLines; i++ {
+			fmt.Fprint(t.w, "\r\x1b[K")
+			if i < t.lastRenderedLines-1 {
+				fmt.Fprint(t.w, "\x1b[B")
 			}
+		}
+		// Return to the top line of the block
+		if t.lastRenderedLines > 1 {
+			fmt.Fprintf(t.w, "\x1b[%dA", t.lastRenderedLines-1)
 		}
 
 		// 2. Print the new render
@@ -218,17 +228,27 @@ func (t *TUI) readInput() (string, error) {
 			fmt.Fprint(t.w, prompt)
 		}
 		fmt.Fprint(t.w, content)
+		cursorRow := lines - 1
 
 		// 3. Move cursor back to the correct position within the buffer
-		if t.lastRenderedLines > 1 {
-			fmt.Fprintf(t.w, "\x1b[%dA", t.lastRenderedLines-1)
-			if row > 0 {
-				fmt.Fprintf(t.w, "\x1b[%dB", row)
+		// Edge case of right before newline: do nothing unless moving
+		if (col == 0) && (t.lastRenderedLines >= lines) {
+			if isMovingKey {
+				// Here we need to reposition
+				fmt.Fprintf(t.w, "\x1b[%dG", col+1)
 			}
+		} else {
+			// We are at the end of the N lines, and at row M
+			// Calculate offsetRows = N-M and move up that ammount
 			fmt.Fprintf(t.w, "\x1b[%dG", col+1)
+		}
+		offsetRows := cursorRow - row
+		if offsetRows > 0 {
+			fmt.Fprintf(t.w, "\x1b[%dA", offsetRows)
 		}
 
 		t.lastRenderedLines = lines
+		t.lastCursorRow = cursorRow - offsetRows
 	}
 }
 
