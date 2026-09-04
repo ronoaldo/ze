@@ -188,26 +188,26 @@ func (t *TUI) readInput() (string, error) {
 			}
 		}
 
-		// --- RE-RENDER LOGIC (BLOCK RENDERING) ---
 		content := buffer.String()
 		lines := t.calculateRenderedLines(prompt, content, width)
+		row, col := t.getCursorRelativePosition(prompt, content, width, buffer.CursorPosition())
 
 		// 1. Clear the previous render block
 		if t.lastRenderedLines > 0 {
-			// Move up to the top of the block
-			if t.lastRenderedLines > 1 {
-				fmt.Fprintf(t.w, "\x1b[%dA", t.lastRenderedLines-1)
+			// Move to the top of the block
+			if row > 1 {
+				fmt.Fprintf(t.w, "\x1b[%dA", row-1)
 			}
 
 			// Clear each line in the block
 			for i := 0; i < t.lastRenderedLines; i++ {
-				fmt.Fprint(t.w, "\r\x1b[K") // Clear current line and move to start
+				fmt.Fprint(t.w, "\r\x1b[K")
 				if i < t.lastRenderedLines-1 {
-					fmt.Fprint(t.w, "\x1b[B") // Move down
+					fmt.Fprint(t.w, "\x1b[B")
 				}
 			}
 
-			// Return to the top line to redraw everything correctly
+			// Return to the top line of the block
 			if t.lastRenderedLines > 1 {
 				fmt.Fprintf(t.w, "\x1b[%dA", t.lastRenderedLines-1)
 			}
@@ -220,9 +220,12 @@ func (t *TUI) readInput() (string, error) {
 		fmt.Fprint(t.w, content)
 
 		// 3. Move cursor back to the correct position within the buffer
-		if buffer.CursorPosition() < buffer.Len() {
-			offset := buffer.Len() - buffer.CursorPosition()
-			fmt.Fprintf(t.w, "\x1b[%dD", offset)
+		if t.lastRenderedLines > 1 {
+			fmt.Fprintf(t.w, "\x1b[%dA", t.lastRenderedLines-1)
+			if row > 0 {
+				fmt.Fprintf(t.w, "\x1b[%dB", row)
+			}
+			fmt.Fprintf(t.w, "\x1b[%dG", col+1)
 		}
 
 		t.lastRenderedLines = lines
@@ -248,6 +251,25 @@ func (t *TUI) calculateRenderedLines(prompt, content string, width int) int {
 
 	extraChars := cWidth - remainingInFirstLine
 	return 1 + (extraChars+width-1)/width
+}
+
+// getCursorRelativePosition calculates the (row, col) position of the cursor relative
+// to the start of the rendered block, considering terminal width and line wrapping.
+func (t *TUI) getCursorRelativePosition(prompt, content string, width, cursorPos int) (int, int) {
+	if width <= 0 {
+		width = 80
+	}
+	pWidth := VisibleWidth(prompt)
+
+	// A posição visual total é a largura visível do prompt + a posição do cursor no conteúdo
+	targetVisibleIndex := pWidth + cursorPos
+
+	// A linha é o índice dividido pela largura
+	row := targetVisibleIndex / width
+	// A coluna é o resto da divisão
+	col := targetVisibleIndex % width
+
+	return row, col
 }
 
 // readLine reads a line from stdin.
