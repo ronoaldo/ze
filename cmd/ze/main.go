@@ -256,17 +256,21 @@ func run() error {
 }
 
 func printNeofetch(w io.Writer, modelName string, cfg *Config, sessionID string) {
+	buildTime := date
+	if version == "dev" {
+		buildTime = time.Now().UTC().Format(time.RFC3339)
+	}
 	modelNameToPrint := modelName
 	if modelName == "" {
 		modelNameToPrint = "(unset: use /models to view options)"
 	}
 	info := []string{
-		fmt.Sprintf("Session:     %s", sessionID),
-		fmt.Sprintf("Model:       %s", modelNameToPrint),
-		fmt.Sprintf("Server:      %s", cfg.URL),
-		fmt.Sprintf("Options:"),
-		fmt.Sprintf("  timeout=%v, show_thinking=%v", cfg.Timeout, cfg.ShowThinking),
-		fmt.Sprintf("  verbose=%v, api_verbose=%v", cfg.Verbose, cfg.VerboseAPICalls),
+		fmt.Sprintf("Session: %s", sessionID),
+		fmt.Sprintf("  Model: %s", modelNameToPrint),
+		fmt.Sprintf(" Server: %s", cfg.URL),
+		fmt.Sprintf(""),
+		fmt.Sprintf("Version: %s (%s)", version, buildTime),
+		fmt.Sprintf("         %s", commit),
 	}
 
 	fmt.Fprintln(w, "")
